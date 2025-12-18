@@ -51,9 +51,6 @@ export function BuscaCobertura() {
               {loading ? "Buscando..." : "Buscar"}
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground text-center">
-            Digite seu CEP para ver os planos disponíveis na sua região
-          </p>
         </form>
       </CardContent>
     </Card>
