@@ -51,7 +51,7 @@ export class PlanoRepository {
       data: {
         ...data,
         preco: data.preco,
-        beneficios: data.beneficios || null,
+        beneficios: data.beneficios ? (data.beneficios as any) : null,
       },
       include: {
         operadora: true,
@@ -71,7 +71,7 @@ export class PlanoRepository {
       data: {
         ...data,
         preco: data.preco !== undefined ? data.preco : undefined,
-        beneficios: data.beneficios !== undefined ? data.beneficios : undefined,
+        beneficios: data.beneficios !== undefined ? (data.beneficios as any) : undefined,
       },
       include: {
         operadora: true,
