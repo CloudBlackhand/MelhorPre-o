@@ -94,3 +94,4 @@ model Recomendacao {
   @@map("recomendacoes")
 }
 
+

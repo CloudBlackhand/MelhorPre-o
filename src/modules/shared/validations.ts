@@ -19,3 +19,4 @@ export const KMLFileSchema = z.object({
   type: z.string().refine((val) => val === "application/vnd.google-earth.kml+xml" || val === "application/xml" || val.endsWith(".kml"), "Arquivo deve ser KML"),
 });
 
+
