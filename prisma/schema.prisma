@@ -1,0 +1,96 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Operadora {
+  id                String   @id @default(cuid())
+  nome              String
+  slug              String   @unique
+  logoUrl           String?  @map("logo_url")
+  siteUrl           String?  @map("site_url")
+  telefone          String?
+  email             String?
+  ativo             Boolean  @default(true)
+  ordemRecomendacao Int?     @map("ordem_recomendacao")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  planos            Plano[]
+  coberturaAreas    CoberturaArea[]
+  recomendacoes     Recomendacao[]
+
+  @@index([ativo])
+  @@index([ordemRecomendacao])
+  @@map("operadoras")
+}
+
+model Plano {
+  id                String    @id @default(cuid())
+  operadoraId       String    @map("operadora_id")
+  nome              String
+  velocidadeDownload Int      @map("velocidade_download") // Mbps
+  velocidadeUpload  Int       @map("velocidade_upload") // Mbps
+  preco             Decimal   @db.Decimal(10, 2)
+  descricao         String?
+  beneficios        Json?     // Array de strings
+  ativo             Boolean   @default(true)
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  operadora         Operadora @relation(fields: [operadoraId], references: [id], onDelete: Cascade)
+
+  @@index([operadoraId, ativo])
+  @@index([ativo])
+  @@map("planos")
+}
+
+model CoberturaArea {
+  id          String    @id @default(cuid())
+  operadoraId String    @map("operadora_id")
+  nomeArea    String    @map("nome_area")
+  geometria   Json      // GeoJSON ou PostGIS Geometry
+  kmlOriginal String?   @db.Text @map("kml_original")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  operadora   Operadora @relation(fields: [operadoraId], references: [id], onDelete: Cascade)
+
+  @@index([operadoraId])
+  @@map("cobertura_areas")
+}
+
+model AdminUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  senhaHash String   @map("senha_hash")
+  role      String   @default("admin") // admin | super_admin
+  createdAt DateTime @default(now()) @map("created_at")
+  lastLogin DateTime? @map("last_login")
+
+  @@map("admin_users")
+}
+
+model Recomendacao {
+  id          String    @id @default(cuid())
+  operadoraId String    @map("operadora_id")
+  prioridade  Int
+  motivo      String?
+  badgeText   String?   @map("badge_text")
+  ativo       Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  operadora   Operadora @relation(fields: [operadoraId], references: [id], onDelete: Cascade)
+
+  @@index([operadoraId])
+  @@index([ativo, prioridade])
+  @@map("recomendacoes")
+}
+
