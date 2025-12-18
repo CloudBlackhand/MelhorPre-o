@@ -30,7 +30,7 @@ export function BuscaCobertura() {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card className="w-full max-w-2xl mx-auto bg-white">
       <CardHeader>
         <CardTitle className="text-2xl text-center">
           Encontre os melhores planos de internet na sua região
