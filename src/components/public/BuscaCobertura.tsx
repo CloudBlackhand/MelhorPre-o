@@ -6,7 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRouter } from "next/navigation";
 
-export function BuscaCobertura() {
+interface BuscaCoberturaProps {
+  hideTitle?: boolean;
+}
+
+export function BuscaCobertura({ hideTitle = false }: BuscaCoberturaProps) {
   const router = useRouter();
   const [cep, setCep] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,11 +35,13 @@ export function BuscaCobertura() {
 
   return (
     <Card className="w-full max-w-2xl mx-auto bg-white">
-      <CardHeader>
-        <CardTitle className="text-2xl text-center">
-          Encontre os melhores planos de internet na sua região
-        </CardTitle>
-      </CardHeader>
+      {!hideTitle && (
+        <CardHeader>
+          <CardTitle className="text-2xl text-center">
+            Encontre os melhores planos de internet na sua região
+          </CardTitle>
+        </CardHeader>
+      )}
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex gap-2">
