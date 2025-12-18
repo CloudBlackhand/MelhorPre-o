@@ -30,32 +30,28 @@ export function BuscaCobertura() {
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto bg-white/95 backdrop-blur-md border-white/30 shadow-2xl">
+    <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle className="text-2xl md:text-3xl text-center font-bold text-gray-800">
+        <CardTitle className="text-2xl text-center">
           Encontre os melhores planos de internet na sua região
         </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex gap-2">
             <Input
               type="text"
               placeholder="Digite seu CEP (ex: 12345-678)"
               value={formatCEP(cep)}
               onChange={(e) => setCep(e.target.value)}
               maxLength={9}
-              className="flex-1 text-lg h-12 border-2 focus:border-blue-500"
+              className="flex-1"
             />
-            <Button 
-              type="submit" 
-              disabled={loading}
-              className="h-12 px-8 text-lg font-semibold bg-blue-600 hover:bg-blue-700 transition-colors"
-            >
+            <Button type="submit" disabled={loading}>
               {loading ? "Buscando..." : "Buscar"}
             </Button>
           </div>
-          <p className="text-sm text-gray-600 text-center">
+          <p className="text-sm text-muted-foreground text-center">
             Digite seu CEP para ver os planos disponíveis na sua região
           </p>
         </form>
