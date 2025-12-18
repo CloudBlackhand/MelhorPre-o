@@ -1,3 +1,4 @@
+// @ts-expect-error - Turf.js has type resolution issues with package.json exports
 import * as turf from "@turf/turf";
 import type { FeatureCollection, Point, Polygon, MultiPolygon } from "geojson";
 
