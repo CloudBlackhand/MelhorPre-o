@@ -1,4 +1,5 @@
 import { BuscaCobertura } from "@/components/public/BuscaCobertura";
+import { PlanosDestaque } from "@/components/public/PlanosDestaque";
 
 export default function HomePage() {
   return (
@@ -34,9 +35,10 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Conteúdo */}
-      <div className="flex-1 py-12 px-4">
-        <div className="max-w-6xl mx-auto">
+      {/* Conteúdo - Planos em Destaque */}
+      <div className="flex-1 py-16 px-4">
+        <div className="max-w-7xl mx-auto">
+          <PlanosDestaque />
         </div>
       </div>
     </main>
