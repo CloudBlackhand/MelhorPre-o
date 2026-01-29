@@ -25,15 +25,29 @@ export function CardPlano({ plano }: CardPlanoProps) {
   const precoInteiro = Math.floor(precoNum);
   const precoDecimal = Math.round((precoNum - precoInteiro) * 100).toString().padStart(2, '0');
 
+  // Determinar badge baseado no preço
+  const getBadge = () => {
+    if (precoNum < 100) return { text: "Mais Popular", color: "bg-green-500" };
+    if (precoNum < 150) return { text: "Melhor Custo-Benefício", color: "bg-blue-500" };
+    if (precoNum < 250) return { text: "Alta Performance", color: "bg-purple-500" };
+    return { text: "Premium", color: "bg-amber-500" };
+  };
+
+  const badge = getBadge();
+
   return (
     <Card className="h-full flex flex-col border-2 border-gray-200 hover:border-[#1e3a8a] hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
-      {/* Badge de destaque sutil */}
-      <div className="absolute top-4 right-4 w-3 h-3 bg-green-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
+      {/* Badge de destaque */}
+      <div className="absolute top-4 right-4 z-10">
+        <span className={`${badge.color} text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg opacity-90 group-hover:opacity-100 transition-opacity`}>
+          {badge.text}
+        </span>
+      </div>
       
       <CardContent className="flex-1 flex flex-col p-6">
-        {/* Logo da Operadora */}
-        {plano.operadora.logoUrl && (
-          <div className="mb-6 flex items-center justify-center h-16">
+        {/* Logo da Operadora ou Nome */}
+        <div className="mb-6 flex items-center justify-center h-16">
+          {plano.operadora.logoUrl ? (
             <Image
               src={plano.operadora.logoUrl}
               alt={plano.operadora.nome}
@@ -41,11 +55,20 @@ export function CardPlano({ plano }: CardPlanoProps) {
               height={50}
               className="object-contain max-h-12"
             />
-          </div>
-        )}
+          ) : (
+            <div className="bg-gradient-to-r from-[#1e3a8a] to-[#1e40af] text-white px-6 py-2 rounded-lg font-bold text-lg">
+              {plano.operadora.nome}
+            </div>
+          )}
+        </div>
         
         {/* Nome do Plano */}
         <h3 className="text-xl font-bold text-gray-900 mb-2">{plano.nome}</h3>
+        
+        {/* Descrição se disponível */}
+        {plano.descricao && (
+          <p className="text-sm text-gray-600 mb-4">{plano.descricao}</p>
+        )}
         
         {/* Preço em destaque */}
         <div className="mb-6 pb-6 border-b border-gray-200">
@@ -59,31 +82,41 @@ export function CardPlano({ plano }: CardPlanoProps) {
         
         {/* Velocidades */}
         <div className="space-y-4 mb-6 flex-1">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border-2 border-blue-100">
             <div className="text-center">
-              <div className="text-3xl font-extrabold text-[#1e3a8a] mb-1">
-                {plano.velocidadeDownload} <span className="text-lg font-semibold text-gray-600">Mbps</span>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <svg className="w-6 h-6 text-[#1e3a8a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <div className="text-3xl font-extrabold text-[#1e3a8a]">
+                  {plano.velocidadeDownload} <span className="text-lg font-semibold text-gray-600">Mbps</span>
+                </div>
               </div>
-              <div className="text-sm text-gray-600">Velocidade de Download</div>
+              <div className="text-sm font-medium text-gray-700">Velocidade de Download</div>
             </div>
           </div>
           
           {plano.velocidadeUpload > 0 && (
-            <div className="text-center text-sm text-gray-600">
-              <span className="font-semibold">Upload:</span> {plano.velocidadeUpload} Mbps
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-600 bg-gray-50 rounded-lg py-2">
+              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+              <span className="font-semibold">Upload:</span> 
+              <span className="font-bold text-[#1e3a8a]">{plano.velocidadeUpload} Mbps</span>
             </div>
           )}
           
           {/* Benefícios */}
           {plano.beneficios && plano.beneficios.length > 0 && (
             <div className="pt-4 border-t border-gray-200">
-              <ul className="space-y-2">
-                {plano.beneficios.slice(0, 3).map((beneficio, index) => (
-                  <li key={index} className="flex items-start text-sm text-gray-700">
-                    <svg className="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Benefícios Inclusos:</h4>
+              <ul className="space-y-2.5">
+                {plano.beneficios.slice(0, 4).map((beneficio, index) => (
+                  <li key={index} className="flex items-start text-sm text-gray-700 group/item">
+                    <svg className="w-5 h-5 text-green-500 mr-2.5 flex-shrink-0 mt-0.5 group-hover/item:scale-110 transition-transform" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
-                    <span>{beneficio}</span>
+                    <span className="font-medium">{beneficio}</span>
                   </li>
                 ))}
               </ul>
