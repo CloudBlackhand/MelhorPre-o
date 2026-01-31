@@ -41,17 +41,8 @@ export class GeolocationService {
       );
 
       if (!coordinates) {
-        // Fallback: return address without coordinates
-        const location: GeoLocation = {
-          lat: 0,
-          lng: 0,
-          cep: cepFormatted,
-          logradouro,
-          bairro,
-          cidade: localidade,
-          estado: uf,
-        };
-        return location;
+        // Não retornar (0,0) - fica fora do Brasil e quebra a busca por cobertura
+        return null;
       }
 
       const location: GeoLocation = {
@@ -76,43 +67,38 @@ export class GeolocationService {
   }
 
   /**
-   * Convert address to coordinates
-   * This is a simplified version - in production, use a proper geocoding service
+   * Convert address to coordinates (Nominatim / OpenStreetMap - gratuito, com rate limit)
    */
   private static async addressToCoordinates(
     address: string
   ): Promise<{ lat: number; lng: number } | null> {
-    // For now, return null - coordinates will need to be obtained from another service
-    // You can integrate with:
-    // - Google Geocoding API (requires API key)
-    // - OpenStreetMap Nominatim (free but has rate limits)
-    // - Other geocoding services
-
-    // Example with Nominatim (uncomment if you want to use it):
-    /*
     try {
-      const response = await axios.get('https://nominatim.openstreetmap.org/search', {
-        params: {
-          q: address,
-          format: 'json',
-          limit: 1,
-        },
-        headers: {
-          'User-Agent': 'MelhorPreco.net'
+      const response = await axios.get(
+        "https://nominatim.openstreetmap.org/search",
+        {
+          params: {
+            q: address,
+            format: "json",
+            limit: 1,
+            countrycodes: "br",
+          },
+          headers: {
+            "User-Agent": "MelhorPreco.net (contato@melhorpreco.net)",
+          },
+          timeout: 5000,
         }
-      });
+      );
 
       if (response.data && response.data.length > 0) {
+        const first = response.data[0];
         return {
-          lat: parseFloat(response.data[0].lat),
-          lng: parseFloat(response.data[0].lon),
+          lat: parseFloat(first.lat),
+          lng: parseFloat(first.lon),
         };
       }
     } catch (error) {
-      console.error('Geocoding error:', error);
+      console.error("Geocoding error:", error);
     }
-    */
-
     return null;
   }
 

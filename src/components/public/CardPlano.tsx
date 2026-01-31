@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import { getLogoUrl } from "@/lib/logo-urls";
 
 interface CardPlanoProps {
   plano: {
@@ -34,6 +35,7 @@ export function CardPlano({ plano }: CardPlanoProps) {
   };
 
   const badge = getBadge();
+  const logoUrl = getLogoUrl(plano.operadora);
 
   return (
     <Card className="h-full flex flex-col border-2 border-gray-200 hover:border-[#1e3a8a] hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
@@ -47,14 +49,22 @@ export function CardPlano({ plano }: CardPlanoProps) {
       <CardContent className="flex-1 flex flex-col p-6">
         {/* Logo da Operadora ou Nome */}
         <div className="mb-6 flex items-center justify-center h-16">
-          {plano.operadora.logoUrl ? (
-            <Image
-              src={plano.operadora.logoUrl}
-              alt={plano.operadora.nome}
-              width={140}
-              height={50}
-              className="object-contain max-h-12"
-            />
+          {logoUrl ? (
+            logoUrl.toLowerCase().endsWith(".svg") ? (
+              <img
+                src={logoUrl}
+                alt={plano.operadora.nome}
+                className="object-contain max-h-12 w-[140px] h-12"
+              />
+            ) : (
+              <Image
+                src={logoUrl}
+                alt={plano.operadora.nome}
+                width={140}
+                height={50}
+                className="object-contain max-h-12"
+              />
+            )
           ) : (
             <div className="bg-gradient-to-r from-[#1e3a8a] to-[#1e40af] text-white px-6 py-2 rounded-lg font-bold text-lg">
               {plano.operadora.nome}

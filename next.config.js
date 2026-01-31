@@ -1,12 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['localhost'],
+    domains: ['localhost', 'verovideo.com.br', 'desktopfibra.com'],
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
+      { protocol: 'https', hostname: 'verovideo.com.br', pathname: '/**' },
+      { protocol: 'https', hostname: 'desktopfibra.com', pathname: '/**' },
     ],
   },
   experimental: {

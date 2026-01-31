@@ -132,7 +132,7 @@ export function KMLManager() {
             <Input
               id="file"
               type="file"
-              accept=".kml,application/vnd.google-earth.kml+xml,application/xml"
+              accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/xml,application/zip"
               onChange={handleFileChange}
             />
             {selectedFile && (

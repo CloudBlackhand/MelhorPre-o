@@ -36,8 +36,15 @@ export class CoberturaService {
       };
     }
 
-    // Validate geometry
-    const geometryValidation = GeometryService.validateGeometry(parseResult.geojson);
+    // Usar apenas Polygon e MultiPolygon (KML pode ter LineString - ignorar para cobertura)
+    const geojson = parseResult.geojson;
+    geojson.features = (geojson.features || []).filter((f) => {
+      const t = f.geometry?.type;
+      return t === "Polygon" || t === "MultiPolygon";
+    });
+
+    // Validate geometry (precisa ter pelo menos uma área)
+    const geometryValidation = GeometryService.validateGeometry(geojson);
     if (!geometryValidation.valid) {
       return {
         success: false,
@@ -50,7 +57,7 @@ export class CoberturaService {
       const area = await this.repository.create({
         operadoraId,
         nomeArea,
-        geometria: parseResult.geojson,
+        geometria: geojson,
         kmlOriginal: kmlString,
       });
 
@@ -74,8 +81,15 @@ export class CoberturaService {
    * Check coverage by CEP
    */
   async checkCoverageByCEP(cep: string): Promise<CoberturaResponse> {
-    // Normalize CEP
-    const normalizedCEP = GeolocationService.normalizeCEP(cep);
+    // Normalize CEP (apenas dígitos, 8 chars)
+    const normalizedCEP = cep.replace(/\D/g, "");
+    if (normalizedCEP.length !== 8) {
+      return {
+        operadoras: [],
+        cep: normalizedCEP || cep,
+        mensagem: "CEP inválido. Informe 8 dígitos (ex: 30130-100).",
+      };
+    }
 
     // Check cache
     const cacheKey = `cobertura:cep:${normalizedCEP}`;
@@ -84,24 +98,38 @@ export class CoberturaService {
       return cached;
     }
 
-    // Get coordinates from CEP
-    const location = await GeolocationService.cepToCoordinates(normalizedCEP);
+    try {
+      // Get coordinates from CEP (ViaCEP + Nominatim)
+      const location = await GeolocationService.cepToCoordinates(normalizedCEP);
 
-    if (!location || !location.lat || !location.lng) {
+      if (!location || location.lat == null || location.lng == null) {
+        return {
+          operadoras: [],
+          cep: normalizedCEP,
+          mensagem: "Não foi possível obter a localização deste CEP. Verifique o número ou tente outro.",
+        };
+      }
+
+      // Check coverage
+      const result = await this.checkCoverageByCoordinates(location.lat, location.lng);
+      result.cep = normalizedCEP;
+      if (result.operadoras.length === 0 && !result.mensagem) {
+        result.mensagem =
+          "CEP encontrado, mas não há cobertura cadastrada para esta região. Cadastre áreas KML no painel admin.";
+      }
+
+      // Cache for 24 hours
+      await setCache(cacheKey, result, 86400);
+
+      return result;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Erro ao consultar CEP.";
       return {
         operadoras: [],
         cep: normalizedCEP,
+        mensagem: msg.includes("não encontrado") ? "CEP não encontrado. Verifique o número." : msg,
       };
     }
-
-    // Check coverage
-    const result = await this.checkCoverageByCoordinates(location.lat, location.lng);
-    result.cep = normalizedCEP;
-
-    // Cache for 24 hours
-    await setCache(cacheKey, result, 86400);
-
-    return result;
   }
 
   /**
@@ -159,6 +187,10 @@ export class CoberturaService {
       operadoras: operadoras.filter((o) => o !== null) as any,
       coordenadas: { lat, lng },
     };
+    if (result.operadoras.length === 0) {
+      result.mensagem =
+        "Não há cobertura cadastrada para esta região. Cadastre áreas KML no painel admin.";
+    }
 
     // Cache for 24 hours
     await setCache(cacheKey, result, 86400);

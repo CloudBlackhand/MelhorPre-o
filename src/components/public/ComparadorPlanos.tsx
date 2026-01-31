@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { CoberturaResponse } from "@/types";
 import { CardPlano } from "./CardPlano";
 import { FiltrosPlanos } from "./FiltrosPlanos";
+import { PLANOS_EXEMPLO_COMPARADOR } from "@/lib/planos-exemplo";
 import axios from "axios";
 
 interface ComparadorPlanosProps {
@@ -45,10 +46,27 @@ export function ComparadorPlanos({ cep }: ComparadorPlanosProps) {
 
   if (!data || data.operadoras.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">
-          Nenhum plano encontrado para este CEP. Tente outro CEP.
-        </p>
+      <div className="space-y-10">
+        <div className="text-center py-6 space-y-2">
+          <p className="text-muted-foreground">
+            {data?.mensagem || "Nenhum plano encontrado para este CEP. Tente outro CEP."}
+          </p>
+          {data?.coordenadas && (
+            <p className="text-sm text-muted-foreground">
+              Coordenadas consultadas: {data.coordenadas.lat.toFixed(4)}, {data.coordenadas.lng.toFixed(4)}
+            </p>
+          )}
+        </div>
+
+        {/* Cards de exemplo: mesmo layout que aparece quando há cobertura */}
+        <div>
+          <h2 className="text-lg font-semibold text-gray-700 mb-4">Exemplo de como ficam os planos (quando há cobertura)</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {PLANOS_EXEMPLO_COMPARADOR.map((plano) => (
+              <CardPlano key={plano.id} plano={plano} />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

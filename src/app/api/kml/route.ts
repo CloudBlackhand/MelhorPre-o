@@ -1,9 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import JSZip from "jszip";
 import { CoberturaService } from "@/modules/cobertura/service";
 import { KMLParser } from "@/modules/cobertura/kml-parser";
 import { requireAdmin } from "@/lib/auth/middleware";
 
 const coberturaService = new CoberturaService();
+
+async function extractKmlFromFile(file: File): Promise<string> {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".kmz")) {
+    const buffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(buffer);
+    // KMZ geralmente tem doc.kml na raiz
+    const docKml = zip.file("doc.kml") ?? zip.file(/\.kml$/i)[0];
+    if (!docKml) {
+      throw new Error("KMZ não contém arquivo .kml (procure doc.kml ou qualquer .kml)");
+    }
+    return docKml.async("string");
+  }
+  return file.text();
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +32,7 @@ export async function POST(request: NextRequest) {
     const nomeArea = formData.get("nomeArea") as string;
 
     if (!file) {
-      return NextResponse.json({ error: "Arquivo KML é obrigatório" }, { status: 400 });
+      return NextResponse.json({ error: "Arquivo KML/KMZ é obrigatório" }, { status: 400 });
     }
 
     if (!operadoraId) {
@@ -36,8 +52,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Read file content
-    const kmlString = await file.text();
+    // Read content: KML direto ou extrair do KMZ
+    let kmlString: string;
+    try {
+      kmlString = await extractKmlFromFile(file);
+    } catch (err) {
+      return NextResponse.json(
+        { error: "Erro ao ler arquivo", message: err instanceof Error ? err.message : "KMZ inválido ou sem .kml" },
+        { status: 400 }
+      );
+    }
 
     // Process KML
     const result = await coberturaService.processKML(kmlString, operadoraId, nomeArea);

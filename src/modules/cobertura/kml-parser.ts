@@ -82,29 +82,36 @@ export class KMLParser {
   }
 
   /**
-   * Validate KML file before upload
+   * Validate KML/KMZ file before upload
    */
   static validateKMLFile(file: File): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    // Check file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      errors.push("Arquivo muito grande. Máximo permitido: 10MB");
+    // Check file size (max 25MB - cobertura pode ser grande)
+    if (file.size > 25 * 1024 * 1024) {
+      errors.push("Arquivo muito grande. Máximo permitido: 25MB");
     }
 
-    // Check file type
-    const validTypes = [
+    // Check file type: KML ou KMZ
+    const validKmlTypes = [
       "application/vnd.google-earth.kml+xml",
       "application/xml",
       "text/xml",
     ];
-    const validExtensions = [".kml"];
+    const validKmzTypes = ["application/vnd.google-earth.kmz", "application/zip"];
+    const validExtensions = [".kml", ".kmz"];
 
-    const hasValidType = validTypes.includes(file.type);
-    const hasValidExtension = validExtensions.some((ext) => file.name.toLowerCase().endsWith(ext));
+    const name = file.name.toLowerCase();
+    const hasKmlExt = name.endsWith(".kml");
+    const hasKmzExt = name.endsWith(".kmz");
+    const hasValidType =
+      validKmlTypes.includes(file.type) ||
+      validKmzTypes.includes(file.type) ||
+      hasKmlExt ||
+      hasKmzExt;
 
-    if (!hasValidType && !hasValidExtension) {
-      errors.push("Arquivo deve ser do tipo KML (.kml)");
+    if (!hasValidType) {
+      errors.push("Arquivo deve ser KML (.kml) ou KMZ (.kmz)");
     }
 
     return {

@@ -119,6 +119,8 @@ export interface CoberturaResponse {
     lng: number;
   };
   cep?: string;
+  /** Mensagem explicativa quando não há planos (ex.: CEP sem localização, região sem cobertura) */
+  mensagem?: string;
 }
 
 export interface GeoLocation {

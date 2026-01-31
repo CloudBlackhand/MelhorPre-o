@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { CardPlano } from "./CardPlano";
+import { PLANOS_PLACEHOLDER } from "@/lib/planos-exemplo";
 
 interface PlanoComOperadora {
   id: string;
@@ -19,100 +20,6 @@ interface PlanoComOperadora {
     logoUrl?: string | null;
   };
 }
-
-// Planos placeholder comuns no mercado brasileiro
-const PLANOS_PLACEHOLDER: PlanoComOperadora[] = [
-  {
-    id: "placeholder-1",
-    nome: "Internet Fibra 100 Mbps",
-    velocidadeDownload: 100,
-    velocidadeUpload: 50,
-    preco: 89.90,
-    descricao: "Plano ideal para uso doméstico",
-    beneficios: ["Wi-Fi Grátis", "Instalação Grátis", "Sem Fidelidade"],
-    operadora: {
-      id: "op-1",
-      nome: "Vivo",
-      slug: "vivo",
-      logoUrl: null,
-    },
-  },
-  {
-    id: "placeholder-2",
-    nome: "Internet Fibra 200 Mbps",
-    velocidadeDownload: 200,
-    velocidadeUpload: 100,
-    preco: 119.90,
-    descricao: "Perfeito para famílias",
-    beneficios: ["Wi-Fi Grátis", "Instalação Grátis", "Suporte 24/7"],
-    operadora: {
-      id: "op-2",
-      nome: "Claro",
-      slug: "claro",
-      logoUrl: null,
-    },
-  },
-  {
-    id: "placeholder-3",
-    nome: "Internet Fibra 300 Mbps",
-    velocidadeDownload: 300,
-    velocidadeUpload: 150,
-    preco: 149.90,
-    descricao: "Alta velocidade para trabalhar e estudar",
-    beneficios: ["Wi-Fi Grátis", "Instalação Grátis", "Sem Fidelidade"],
-    operadora: {
-      id: "op-3",
-      nome: "Oi",
-      slug: "oi",
-      logoUrl: null,
-    },
-  },
-  {
-    id: "placeholder-4",
-    nome: "Internet Fibra 500 Mbps",
-    velocidadeDownload: 500,
-    velocidadeUpload: 250,
-    preco: 199.90,
-    descricao: "Ultra velocidade para múltiplos dispositivos",
-    beneficios: ["Wi-Fi 6 Grátis", "Instalação Grátis", "Suporte Premium"],
-    operadora: {
-      id: "op-4",
-      nome: "TIM",
-      slug: "tim",
-      logoUrl: null,
-    },
-  },
-  {
-    id: "placeholder-5",
-    nome: "Internet Fibra 1 Gbps",
-    velocidadeDownload: 1000,
-    velocidadeUpload: 500,
-    preco: 299.90,
-    descricao: "Máxima velocidade disponível",
-    beneficios: ["Wi-Fi 6 Grátis", "Instalação Grátis", "Suporte Premium 24/7"],
-    operadora: {
-      id: "op-5",
-      nome: "NET/Claro",
-      slug: "net-claro",
-      logoUrl: null,
-    },
-  },
-  {
-    id: "placeholder-6",
-    nome: "Internet Fibra 250 Mbps",
-    velocidadeDownload: 250,
-    velocidadeUpload: 125,
-    preco: 139.90,
-    descricao: "Equilíbrio perfeito entre velocidade e preço",
-    beneficios: ["Wi-Fi Grátis", "Instalação Grátis", "Sem Fidelidade"],
-    operadora: {
-      id: "op-6",
-      nome: "Copel",
-      slug: "copel",
-      logoUrl: null,
-    },
-  },
-];
 
 export function PlanosDestaque() {
   const [planos, setPlanos] = useState<PlanoComOperadora[]>([]);

@@ -1,8 +1,17 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { BuscaCobertura } from "@/components/public/BuscaCobertura";
+
+/** Posições fixas de estrelas (determinísticas para evitar hidratação) */
+const STARS_BANNER = Array.from({ length: 60 }, (_, i) => ({
+  id: i,
+  left: ((i * 17 + 7) % 97) + 1,
+  top: ((i * 23 + 11) % 94) + 2,
+  size: (i % 3) * 0.6 + 1,
+  opacity: (i % 5) * 0.1 + 0.3,
+}));
 
 export function RocketBanner() {
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -63,36 +72,36 @@ export function RocketBanner() {
       )`;
   
   // Rocket position
-  // Starts at 75% (lower part of screen) when not scrolling
-  // Follows the zipper tip when scrolling
+  // Inicial: mesma linha da seta (parte inferior, centralizado, bottom-8)
+  // Ao rolar: segue a ponta do zipper
   const rocketY = scrollProgress === 0 ? 75 : Math.max(5, Math.min(90, zipperTipY));
   const rocketX = 50;
+  const isRocketInitialPosition = scrollProgress === 0;
   
   // Rocket scale (gets slightly larger as it moves up)
   const rocketScale = 1 + (scrollProgress * 0.3);
-  
-  // Rocket opacity (fades out when approaching top)
-  const rocketOpacity = scrollProgress > 0.7 ? Math.max(0, 1 - (scrollProgress - 0.7) * 3.33) : 1;
   
   // Header opacity (fades out as user scrolls)
   const headerOpacity = Math.max(0, 1 - scrollProgress * 2);
   
   // Banner visibility (hides completely when zipper is fully open)
   const bannerVisible = scrollProgress < 1;
-  
+
+  // Quando o foguete chega a 50% da tela, banner e foguete somem juntos, gradativamente e rápido
+  const fadeStartY = 50;  // foguete no meio da tela = começa a sumir
+  const fadeEndY = 28;    // um pouco acima = já sumiu (faixa curta = sumir mais rápido)
+  const unifiedFadeOpacity =
+    rocketY >= fadeStartY ? 1 : rocketY <= fadeEndY ? 0 : (rocketY - fadeEndY) / (fadeStartY - fadeEndY);
+
+  const bannerOpacity = unifiedFadeOpacity;
+  // Foguete: no estado inicial (bounce) fica 1; ao rolar, usa o mesmo fade que o banner
+  const rocketOpacity = scrollProgress === 0 ? 1 : unifiedFadeOpacity;
+
   // Show bounce animation and arrow only when not scrolling
   const showInitialState = scrollProgress === 0;
 
-  // Generate stars for background
-  const stars = useRef(
-    Array.from({ length: 60 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      top: Math.random() * 100,
-      size: Math.random() * 2 + 1,
-      opacity: Math.random() * 0.5 + 0.3,
-    }))
-  ).current;
+  // Estrelas determinísticas (evita erro de hidratação: mesmo resultado no servidor e no cliente)
+  const stars = STARS_BANNER;
 
   return (
     <>
@@ -102,11 +111,12 @@ export function RocketBanner() {
       {/* LAYER 1: Banner with clip-path hole - FIXED; content behind is in flow, revealed through hole */}
       {bannerVisible && (
         <div 
-          className="fixed top-0 left-0 w-full h-screen bg-[#1A2C59] overflow-hidden"
+          className="fixed top-0 left-0 w-full h-screen bg-[#1A2C59] overflow-hidden transition-opacity duration-150"
           style={{ 
             zIndex: 10,
             clipPath: clipPath,
             WebkitClipPath: clipPath,
+            opacity: bannerOpacity,
           }}
         >
           {/* Stars background */}
@@ -146,18 +156,16 @@ export function RocketBanner() {
         </div>
       )}
 
-      {/* LAYER 2: Rocket - FIXED */}
-      {rocketOpacity > 0 && (
-        <div 
-          className={`fixed pointer-events-none ${showInitialState ? 'animate-bounce' : ''}`}
+      {/* LAYER 2: Rocket - ao rolar, posição livre; no início fica no mesmo container que a seta */}
+      {!showInitialState && rocketOpacity > 0 && (
+        <div
+          className="fixed pointer-events-none z-[11]"
           style={{
-            zIndex: 11,
-            left: `${rocketX}%`,
+            left: '50%',
             top: `${rocketY}%`,
             transform: `translate(-50%, -50%) rotate(-20deg) scale(${rocketScale})`,
             opacity: rocketOpacity,
             willChange: 'transform, top, opacity',
-            animationDuration: showInitialState ? '2s' : undefined,
           }}
         >
           <Image
@@ -166,33 +174,63 @@ export function RocketBanner() {
             width={200}
             height={200}
             className="drop-shadow-2xl"
-            style={{
-              filter: 'drop-shadow(0 0 30px rgba(255,255,255,0.4))',
-            }}
+            style={{ filter: 'drop-shadow(0 0 30px rgba(255,255,255,0.4))' }}
             priority
           />
         </div>
       )}
 
-      {/* LAYER 3: Arrow pointing down - only visible in initial state */}
+      {/* Estado inicial: foguete e seta no MESMO container = alinhamento garantido (mesma linha, centralizados) */}
       {showInitialState && (
-        <div 
-          className="fixed bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce z-20"
-          style={{ animationDuration: '1.5s' }}
+        <div
+          className="fixed bottom-8 left-1/2 z-20 pointer-events-none"
+          style={{
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 0,
+          }}
         >
-          <svg 
-            className="w-10 h-10 text-white drop-shadow-lg" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-            strokeWidth={2}
+          {/* Foguete: centralizado, na mesma linha (baseline) que a seta */}
+          <div
+            className={showInitialState ? 'animate-bounce' : ''}
+            style={{
+              animationDuration: '2s',
+              opacity: rocketOpacity,
+              transform: 'rotate(-20deg)',
+              lineHeight: 0,
+            }}
           >
-            <path 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              d="M19 14l-7 7m0 0l-7-7m7 7V3" 
+            <Image
+              src="/rocket.webp"
+              alt="Foguete"
+              width={200}
+              height={200}
+              className="drop-shadow-2xl"
+              style={{ filter: 'drop-shadow(0 0 30px rgba(255,255,255,0.4))', display: 'block' }}
+              priority
             />
-          </svg>
+          </div>
+          {/* Seta: logo abaixo do foguete, mesmo eixo central */}
+          <div
+            className="animate-bounce -mt-2"
+            style={{ animationDuration: '1.5s' }}
+          >
+            <svg
+              className="w-10 h-10 text-white drop-shadow-lg"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 14l-7 7m0 0l-7-7m7 7V3"
+              />
+            </svg>
+          </div>
         </div>
       )}
     </>
