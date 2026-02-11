@@ -29,4 +29,8 @@ else
     npx prisma db push --accept-data-loss || echo "⚠️  Erro ao executar db push"
 fi
 
+echo "🌱 Executando seed (criando usuário admin dev)..."
+# Executar seed para criar usuário admin padrão
+npx prisma db seed || echo "⚠️  Erro ao executar seed (pode ser normal se já existir)"
+
 echo "✅ Post-deploy concluído!"
