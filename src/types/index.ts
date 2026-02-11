@@ -67,6 +67,8 @@ export const CoberturaAreaSchema = z.object({
   nomeArea: z.string(),
   geometria: z.any(), // GeoJSON
   kmlOriginal: z.string().nullable(),
+  rank: z.number().nullable().optional(),
+  score: z.number().nullable().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });
