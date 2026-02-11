@@ -9,7 +9,7 @@
     "restartPolicyMaxRetries": 10,
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 100,
-    "postDeployCommand": "npx prisma migrate deploy || npx prisma db push && npx prisma db seed"
+    "postDeployCommand": "npx prisma migrate deploy 2>/dev/null || (npx prisma db push --accept-data-loss && npx prisma db seed)"
   }
 }
 

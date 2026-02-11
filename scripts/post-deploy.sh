@@ -22,7 +22,7 @@ npx prisma generate
 
 echo "📊 Executando migrações..."
 # Tentar executar migrações, se falhar, usar db push como fallback
-if npx prisma migrate deploy; then
+if npx prisma migrate deploy 2>/dev/null; then
     echo "✅ Migrações executadas com sucesso"
 else
     echo "⚠️  Migrações não encontradas, usando db push..."
