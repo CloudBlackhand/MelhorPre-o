@@ -6,18 +6,14 @@ nixPkgs = ["nodejs_20", "postgresql_16"]
 
 [phases.install]
 cmds = [
-  "npm ci",
-  "npx prisma generate"
+  "npm ci"
 ]
 
 [phases.build]
 cmds = [
+  "npx prisma generate",
   "npm run build"
 ]
 
 [start]
 cmd = "npm start"
-
-# Comando executado após cada deploy
-[deploy]
-cmd = "npx prisma migrate deploy || npx prisma db push"
