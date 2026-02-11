@@ -188,18 +188,13 @@ export async function trackVisit(data: TrackingData, sessionId: string) {
   try {
     await prisma.visitante.create({
       data: {
-        ip: data.ip,
+        ipAddress: data.ip,
         userAgent: data.userAgent,
         referer: data.referer,
         utmSource: data.utmSource,
         utmMedium: data.utmMedium,
         utmCampaign: data.utmCampaign,
-        utmContent: data.utmContent,
-        device: data.device,
-        browser: data.browser,
-        os: data.os,
-        country: data.country,
-        city: data.city,
+        cidade: data.city,
         sessionId,
       },
     });
@@ -220,7 +215,7 @@ export async function trackEvent(
     // Buscar visitante pela sessionId
     const visitante = await prisma.visitante.findFirst({
       where: { sessionId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { lastVisit: "desc" },
     });
 
     if (!visitante) {
@@ -232,9 +227,10 @@ export async function trackEvent(
       data: {
         visitanteId: visitante.id,
         tipo: eventData.tipo,
-        pagina: eventData.pagina,
+        acao: eventData.pagina,
+        url: eventData.pagina,
         elemento: eventData.elemento,
-        dados: eventData.dados || {},
+        metadata: eventData.dados || {},
       },
     });
   } catch (error) {
