@@ -11,7 +11,8 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
-    "create-admin": "tsx scripts/create-admin.ts"
+    "create-admin": "tsx scripts/create-admin.ts",
+    "test:coverage": "tsx scripts/test-coverage.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

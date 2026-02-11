@@ -68,6 +68,42 @@ export default async function AdminDashboard() {
               </Link>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Ranqueamento</CardTitle>
+              <CardDescription>Defina prioridade e notas das áreas de cobertura</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin/ranking">
+                <Button className="w-full">Gerenciar Ranqueamento</Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Analytics</CardTitle>
+              <CardDescription>Visite visitantes, origem dos cliques e áreas mais buscadas</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin/analytics">
+                <Button className="w-full">Ver Analytics</Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Configurações</CardTitle>
+              <CardDescription>Configure WhatsApp e outras opções do sistema</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/admin/configuracoes">
+                <Button className="w-full">Gerenciar Configurações</Button>
+              </Link>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

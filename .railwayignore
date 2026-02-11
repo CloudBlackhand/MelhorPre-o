@@ -1,0 +1,24 @@
+# Arquivos ignorados no deploy Railway
+node_modules/
+.next/
+.git/
+.env.local
+.env*.local
+*.log
+.DS_Store
+coverage/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Arquivos de desenvolvimento
+KMS/
+*.kmz
+*.kml
+!public/
+
+# Documentação (opcional - pode incluir se quiser)
+# docs/
+# *.md

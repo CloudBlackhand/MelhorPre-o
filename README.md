@@ -103,15 +103,37 @@ O projeto usa Prisma ORM. Para fazer alterações no schema:
 2. Execute `npx prisma db push` ou `npx prisma migrate dev`
 3. Gere o cliente: `npx prisma generate`
 
-## 🚢 Deploy no Railway
+## 🚢 Deploy no Railway via GitHub
 
-1. Conecte seu repositório ao Railway
+### Deploy Automático
+
+1. Conecte seu repositório GitHub ao Railway
 2. Adicione os serviços:
    - PostgreSQL (Database)
    - Redis (Cache - opcional)
    - Web Service (Next.js App)
 3. Configure as variáveis de ambiente no Railway
 4. O Railway detectará automaticamente o Next.js e fará o build
+5. **Deploy automático a cada push no GitHub!**
+
+### Guia Completo
+
+Consulte [DEPLOY_GITHUB.md](./DEPLOY_GITHUB.md) para instruções detalhadas.
+
+### Setup Inicial
+
+Após o primeiro deploy:
+
+```bash
+# Habilitar PostGIS
+railway run psql $DATABASE_URL -c "CREATE EXTENSION IF NOT EXISTS postgis;"
+
+# Executar migrações
+railway run npx prisma migrate deploy
+
+# Criar usuário admin
+railway run npm run create-admin
+```
 
 ## 📝 Scripts Disponíveis
 

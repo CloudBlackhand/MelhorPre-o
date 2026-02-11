@@ -1,41 +1,35 @@
 /**
  * Logos das operadoras.
  *
- * Locais (public/logos/): claro, oi — baixe e coloque em public/logos/.
- * Remotos: Vivo (Wikimedia Commons), Vero, Desktop Fibra — URLs diretas.
- *
- * Referências para download (quando usar local):
- * - Claro: https://www.logopng.com.br/logo/claro-161
- * - Oi: https://www.logopng.com.br/logo/oi-102
+ * Remotos: Claro, Vero, Desktop Fibra, Alcans.
+ * Algar deve ser configurado via logoUrl no banco de dados.
  */
 export const LOGOS_OPERADORAS_SVG = {
-  vivo: "/logos/vivo.svg",
-  claro: "/logos/claro.svg",
-  oi: "/logos/oi.svg",
+  // Local SVGs are no longer directly used for providers with remote URLs
 } as const;
 
 export const LOGOS_OPERADORAS_PNG = {
-  vivo: "/logos/vivo.png",
-  claro: "/logos/claro.png",
-  oi: "/logos/oi.png",
+  // Local PNGs are no longer directly used for providers with remote URLs
 } as const;
 
-/** URLs de logos remotos (Vivo, Vero, Desktop Fibra). */
+/** URLs de logos remotos (Claro, Vero, Desktop Fibra, Alcans). */
 export const LOGOS_OPERADORAS_REMOTOS = {
-  vivo: "https://upload.wikimedia.org/wikipedia/commons/1/13/Vivo_logo_2019.svg",
+  claro: "https://upload.wikimedia.org/wikipedia/commons/0/0c/Claro.svg",
   vero: "https://verovideo.com.br/images/vero/logo-sem-slogan.png",
-  desktop: "https://desktopfibra.com/static/img/logo.svg",
+  desktop:
+    "https://desktopfibra.com.br/wp-content/uploads/2024/01/logo-desktop-512x512-1-e1712845028629.png",
+  alcans: "https://alcans.com.br/wp-content/uploads/2023/05/alcans_logo_alcans-1.svg",
 } as const;
 
 /** Map de slug → URL do logo (local ou remoto) para uso em cards e exemplos. */
 export const LOGOS_POR_SLUG: Record<string, string> = {
-  vivo: LOGOS_OPERADORAS_REMOTOS.vivo,
-  claro: LOGOS_OPERADORAS_SVG.claro,
-  oi: LOGOS_OPERADORAS_SVG.oi,
-  "oi-fibra": LOGOS_OPERADORAS_SVG.oi,
+  claro: LOGOS_OPERADORAS_REMOTOS.claro,
   vero: LOGOS_OPERADORAS_REMOTOS.vero,
   desktop: LOGOS_OPERADORAS_REMOTOS.desktop,
   "desktop-fibra": LOGOS_OPERADORAS_REMOTOS.desktop,
+  alcans: LOGOS_OPERADORAS_REMOTOS.alcans,
+  // Algar deve ser configurado via logoUrl no banco de dados
+  algar: "", // Configurar via admin
 };
 
 /**

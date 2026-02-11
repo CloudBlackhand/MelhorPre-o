@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ComparadorPlanos } from "@/components/public/ComparadorPlanos";
 import { BuscaCobertura } from "@/components/public/BuscaCobertura";
@@ -15,12 +16,12 @@ const STARS_FAIXA = Array.from({ length: 50 }, (_, i) => ({
   opacity: (i % 4) * 0.12 + 0.25,
 }));
 
-/** Faixa com estrelas e foguete (logo) à esquerda */
+/** Faixa com estrelas e foguete (logo) à esquerda — largura total, sem caixa interna */
 function FaixaLogo() {
   const stars = STARS_FAIXA;
 
   return (
-    <div className="relative w-full overflow-hidden rounded-xl bg-[#1A2C59] py-4 px-4 md:py-5 md:px-6 mb-8 shadow-lg">
+    <div className="relative w-full overflow-hidden py-4 md:py-5">
       {/* Estrelas de fundo */}
       <div className="absolute inset-0 pointer-events-none">
         {stars.map((star) => (
@@ -37,9 +38,13 @@ function FaixaLogo() {
           />
         ))}
       </div>
-      {/* Foguete à esquerda */}
+      {/* Foguete à esquerda — clicável para ir à home */}
       <div className="relative flex items-center gap-4">
-        <div className="flex-shrink-0 w-16 h-16 md:w-20 md:h-20 flex items-center justify-center">
+        <Link
+          href="/"
+          className="flex-shrink-0 w-16 h-16 md:w-20 md:h-20 flex items-center justify-center rounded-lg transition-opacity hover:opacity-90 focus:opacity-90 focus:outline-none focus:ring-2 focus:ring-white/50"
+          aria-label="Ir para a página inicial"
+        >
           <Image
             src="/rocket.webp"
             alt="MelhorPreço"
@@ -48,7 +53,7 @@ function FaixaLogo() {
             className="drop-shadow-lg object-contain"
             style={{ filter: "drop-shadow(0 0 12px rgba(255,255,255,0.35))", transform: "rotate(-15deg)" }}
           />
-        </div>
+        </Link>
         <div className="h-10 w-px bg-white/30 hidden sm:block" aria-hidden />
         <p className="text-white/90 text-sm md:text-base font-medium">
           Compare os melhores planos para o seu CEP
@@ -73,13 +78,15 @@ function CompararContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4">
-        <FaixaLogo />
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Planos Disponíveis</h1>
-          <p className="text-muted-foreground">CEP: {cep}</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Faixa completa em largura total */}
+      <section className="w-full bg-[#1A2C59] shadow-lg" aria-label="Comparar planos">
+        <div className="container mx-auto px-4">
+          <FaixaLogo />
         </div>
+      </section>
+      <div className="container mx-auto px-4 py-10">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Planos Disponíveis</h1>
         <ComparadorPlanos cep={cep} />
       </div>
     </div>

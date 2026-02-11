@@ -8,7 +8,8 @@ export default function HomePage() {
       <RocketBanner />
 
       {/* Conteúdo no fluxo do documento - revelado pelo zipper ao rolar */}
-      <div className="flex-1 py-16 px-4 bg-gray-50">
+      {/* pt grande evita que os cards (badges "Mais Popular" etc.) apareçam no recorte do banner */}
+      <div className="flex-1 pt-[70vh] pb-16 px-4 bg-gray-50">
         <div className="max-w-7xl mx-auto">
           <PlanosDestaque />
         </div>
