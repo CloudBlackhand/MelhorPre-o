@@ -49,10 +49,14 @@ export async function GET(request: NextRequest) {
             utmCampaign,
           });
 
+          // Obter cidade e estado do CEP para tracking
+          const { GeolocationService } = await import("@/modules/cobertura/geolocation");
+          const location = await GeolocationService.cepToCoordinates(normalizedCEP);
+
           await TrackingService.trackBuscaCobertura(visitanteId, {
             cep: normalizedCEP,
-            cidade: result.cidade,
-            estado: result.estado,
+            cidade: location?.cidade,
+            estado: location?.estado,
             encontrouCobertura: result.operadoras.length > 0,
             operadorasEncontradas: result.operadoras.map((op: any) => op.id),
           });
@@ -135,8 +139,6 @@ export async function GET(request: NextRequest) {
           await TrackingService.trackBuscaCobertura(visitanteId, {
             lat: coordinates.lat,
             lng: coordinates.lng,
-            cidade: result.cidade,
-            estado: result.estado,
             encontrouCobertura: result.operadoras.length > 0,
             operadorasEncontradas: result.operadoras.map((op: any) => op.id),
           });
