@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     // Estatísticas de visitantes
     const totalVisitantes = await prisma.visitante.count({
       where: {
-        createdAt: {
+        firstVisit: {
           gte: dataInicio,
         },
       },
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     const visitantesPorFonte = await prisma.visitante.groupBy({
       by: ["utmSource"],
       where: {
-        createdAt: {
+        firstVisit: {
           gte: dataInicio,
         },
       },
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const visitantesPorReferer = await prisma.visitante.groupBy({
       by: ["referer"],
       where: {
-        createdAt: {
+        firstVisit: {
           gte: dataInicio,
         },
         referer: {
@@ -67,22 +67,6 @@ export async function GET(request: NextRequest) {
         },
       },
       take: 10,
-    });
-
-    // Visitantes por dispositivo
-    const visitantesPorDispositivo = await prisma.visitante.groupBy({
-      by: ["device"],
-      where: {
-        createdAt: {
-          gte: dataInicio,
-        },
-        device: {
-          not: null,
-        },
-      },
-      _count: {
-        id: true,
-      },
     });
 
     // Total de eventos
@@ -145,11 +129,11 @@ export async function GET(request: NextRequest) {
     // Visitantes únicos por dia (últimos 7 dias)
     const visitantesPorDia = await prisma.$queryRaw<Array<{ date: string; count: bigint }>>`
       SELECT 
-        DATE(created_at) as date,
+        DATE(first_visit) as date,
         COUNT(DISTINCT session_id) as count
       FROM visitantes
-      WHERE created_at >= ${dataInicio}
-      GROUP BY DATE(created_at)
+      WHERE first_visit >= ${dataInicio}
+      GROUP BY DATE(first_visit)
       ORDER BY date DESC
       LIMIT 30
     `;
@@ -165,10 +149,6 @@ export async function GET(request: NextRequest) {
         })),
         porReferer: visitantesPorReferer.map((v) => ({
           referer: v.referer,
-          quantidade: v._count.id,
-        })),
-        porDispositivo: visitantesPorDispositivo.map((v) => ({
-          dispositivo: v.device,
           quantidade: v._count.id,
         })),
         porDia: visitantesPorDia.map((v) => ({
