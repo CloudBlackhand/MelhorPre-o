@@ -15,8 +15,15 @@ export class CoberturaRepository {
     });
 
     return areas.map((area) => ({
-      ...area,
+      id: area.id,
+      operadoraId: area.operadoraId,
+      nomeArea: area.nomeArea,
       geometria: area.geometria as any,
+      kmlOriginal: area.kmlOriginal,
+      rank: area.rank ?? null,
+      score: area.score ?? null,
+      createdAt: area.createdAt,
+      updatedAt: area.updatedAt,
     })) as CoberturaArea[];
   }
 
@@ -31,8 +38,15 @@ export class CoberturaRepository {
     if (!area) return null;
 
     return {
-      ...area,
+      id: area.id,
+      operadoraId: area.operadoraId,
+      nomeArea: area.nomeArea,
       geometria: area.geometria as any,
+      kmlOriginal: area.kmlOriginal,
+      rank: area.rank ?? null,
+      score: area.score ?? null,
+      createdAt: area.createdAt,
+      updatedAt: area.updatedAt,
     } as CoberturaArea;
   }
 
@@ -53,8 +67,15 @@ export class CoberturaRepository {
     });
 
     return {
-      ...area,
+      id: area.id,
+      operadoraId: area.operadoraId,
+      nomeArea: area.nomeArea,
       geometria: area.geometria as any,
+      kmlOriginal: area.kmlOriginal,
+      rank: area.rank ?? null,
+      score: area.score ?? null,
+      createdAt: area.createdAt,
+      updatedAt: area.updatedAt,
     } as CoberturaArea;
   }
 
@@ -71,8 +92,15 @@ export class CoberturaRepository {
     });
 
     return {
-      ...area,
+      id: area.id,
+      operadoraId: area.operadoraId,
+      nomeArea: area.nomeArea,
       geometria: area.geometria as any,
+      kmlOriginal: area.kmlOriginal,
+      rank: area.rank ?? null,
+      score: area.score ?? null,
+      createdAt: area.createdAt,
+      updatedAt: area.updatedAt,
     } as CoberturaArea;
   }
 
