@@ -33,6 +33,7 @@ export function OperadoraForm({ operadoraId }: OperadoraFormProps) {
     if (operadoraId) {
       fetchOperadora();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [operadoraId]);
 
   const fetchOperadora = async () => {

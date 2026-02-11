@@ -30,6 +30,7 @@ export function CardPlanoLogo({ operadora, className = "" }: CardPlanoLogoProps)
           }
         >
           {logoUrl.toLowerCase().endsWith(".svg") ? (
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={logoUrl}
               alt={operadora.nome}

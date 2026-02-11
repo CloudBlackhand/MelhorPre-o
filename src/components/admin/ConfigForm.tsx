@@ -35,6 +35,7 @@ export function ConfigForm() {
 
   useEffect(() => {
     fetchConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchConfig = async () => {
@@ -85,7 +86,7 @@ export function ConfigForm() {
       <CardHeader>
         <CardTitle>Configuração do WhatsApp</CardTitle>
         <CardDescription>
-          Configure o número do WhatsApp que será usado no botão "Contratar" dos planos.
+          Configure o número do WhatsApp que será usado no botão &quot;Contratar&quot; dos planos.
           Formato: código do país + DDD + número (ex: 5511999999999)
         </CardDescription>
       </CardHeader>

@@ -25,6 +25,7 @@ export function ComparadorPlanos({ cep }: ComparadorPlanosProps) {
 
   useEffect(() => {
     fetchPlanos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cep]);
 
   const fetchPlanos = async () => {

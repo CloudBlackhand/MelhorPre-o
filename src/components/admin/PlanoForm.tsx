@@ -35,6 +35,7 @@ export function PlanoForm({ planoId }: PlanoFormProps) {
     if (planoId) {
       fetchPlano();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planoId]);
 
   const fetchOperadoras = async () => {
