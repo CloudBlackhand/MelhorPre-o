@@ -270,6 +270,39 @@ export class CoberturaService {
   }
 
   /**
+   * Update rank and score of a coverage area
+   */
+  async updateRank(
+    id: string,
+    data: { rank: number | null; score: number | null }
+  ): Promise<CoberturaArea | null> {
+    try {
+      const { prisma } = await import("@/lib/db/prisma");
+      const updated = await prisma.coberturaArea.update({
+        where: { id },
+        data: {
+          rank: data.rank,
+          score: data.score,
+        },
+        include: {
+          operadora: true,
+        },
+      });
+      
+      // Invalidate cache
+      await this.invalidateCache();
+      
+      return {
+        ...updated,
+        geometria: updated.geometria as any,
+      } as CoberturaArea;
+    } catch (error) {
+      console.error(`[CoberturaService] Erro ao atualizar rank da área ${id}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Delete coverage area
    */
   async deleteArea(id: string): Promise<void> {
