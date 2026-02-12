@@ -18,6 +18,37 @@ const VALID_MIME_TYPES = [
   "application/zip",
 ];
 
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function inferFromFileName(fileName: string): { operadoraNome?: string; nomeArea?: string } {
+  const baseName = fileName.replace(/\.(kml|kmz)$/i, "").trim();
+  const cleaned = baseName.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  const parts = cleaned.split(/\s*[-|]\s*/).filter(Boolean);
+  const noiseRegex =
+    /\b(cobertura|area|área|regiao|região|mapa|poligono|polígono|kml|kmz|google earth|googleearth)\b/gi;
+
+  const stripNoise = (value: string): string =>
+    value.replace(noiseRegex, " ").replace(/\s+/g, " ").trim();
+
+  const operadoraNome = stripNoise(parts[0] || cleaned);
+  let nomeArea = stripNoise(parts.length > 1 ? parts.slice(1).join(" - ") : cleaned);
+
+  if (!nomeArea || normalizeText(nomeArea) === normalizeText(operadoraNome)) {
+    nomeArea = cleaned;
+  }
+
+  return {
+    operadoraNome: operadoraNome || undefined,
+    nomeArea: nomeArea || undefined,
+  };
+}
+
 export function KMLManager() {
   const [areas, setAreas] = useState<CoberturaArea[]>([]);
   const [operadoras, setOperadoras] = useState<Operadora[]>([]);
@@ -98,6 +129,22 @@ export function KMLManager() {
         return;
       }
       setSelectedFile(file);
+
+      // Auto-preencher campos vazios com base no nome do arquivo
+      const inferred = inferFromFileName(file.name);
+      if (!nomeArea && inferred.nomeArea) {
+        setNomeArea(inferred.nomeArea);
+      }
+      if (!operadoraId && inferred.operadoraNome) {
+        const matchedOperadora = operadoras.find(
+          (op) =>
+            normalizeText(op.nome) === normalizeText(inferred.operadoraNome!) ||
+            normalizeText(file.name).includes(normalizeText(op.nome))
+        );
+        if (matchedOperadora) {
+          setOperadoraId(matchedOperadora.id);
+        }
+      }
     } else {
       setSelectedFile(null);
     }
@@ -110,8 +157,8 @@ export function KMLManager() {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !operadoraId || !nomeArea.trim()) {
-      setUploadError("Preencha todos os campos obrigatórios");
+    if (!selectedFile) {
+      setUploadError("Selecione um arquivo KML/KMZ");
       return;
     }
 
@@ -122,8 +169,12 @@ export function KMLManager() {
     try {
       const formData = new FormData();
       formData.append("file", selectedFile);
-      formData.append("operadoraId", operadoraId);
-      formData.append("nomeArea", nomeArea.trim());
+      if (operadoraId) {
+        formData.append("operadoraId", operadoraId);
+      }
+      if (nomeArea.trim()) {
+        formData.append("nomeArea", nomeArea.trim());
+      }
 
       await axios.post("/api/kml", formData, {
         headers: {
@@ -172,29 +223,32 @@ export function KMLManager() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="operadora">Operadora *</Label>
+            <Label htmlFor="operadora">Operadora (opcional)</Label>
             <select
               id="operadora"
               value={operadoraId}
               onChange={(e) => setOperadoraId(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="">Selecione uma operadora</option>
+              <option value="">Detectar automaticamente pelo arquivo</option>
               {operadoras.map((op) => (
                 <option key={op.id} value={op.id}>
                   {op.nome}
                 </option>
               ))}
             </select>
+            <p className="text-xs text-muted-foreground">
+              Se vazio, o sistema tenta identificar no nome do arquivo e cria a operadora se nao existir.
+            </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="nomeArea">Nome da Área *</Label>
+            <Label htmlFor="nomeArea">Nome da Área (opcional)</Label>
             <Input
               id="nomeArea"
               value={nomeArea}
               onChange={(e) => setNomeArea(e.target.value)}
-              placeholder="ex: Região Metropolitana de São Paulo"
+              placeholder="Se vazio, tenta usar o nome do arquivo"
             />
           </div>
 
@@ -258,7 +312,7 @@ export function KMLManager() {
 
           <Button 
             onClick={handleUpload} 
-            disabled={uploading || !selectedFile || !operadoraId || !nomeArea.trim() || !!fileValidationError}
+            disabled={uploading || !selectedFile || !!fileValidationError}
             className="w-full"
           >
             {uploading ? (
