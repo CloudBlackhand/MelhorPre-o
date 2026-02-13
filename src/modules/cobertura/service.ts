@@ -107,101 +107,79 @@ export class CoberturaService {
 
     const originalFeatureCount = source.features?.length || 0;
     let convertedCount = 0;
+    let filteredCount = 0;
 
-    // Processar todas as features e converter LineString fechadas em Polygon
+    // Processar cada feature: converter LineString fechada para Polygon, manter Polygon/MultiPolygon
     for (const feature of source.features || []) {
-      if (!feature.geometry) continue;
-
-      const geom = feature.geometry;
-      
-      // Polygon e MultiPolygon já são válidos
-      if (geom.type === "Polygon" || geom.type === "MultiPolygon") {
-        geojson.features.push(feature);
+      if (!feature.geometry) {
+        filteredCount++;
         continue;
       }
 
-      // LineString fechada = círculo/polígono, converter para Polygon
-      if (geom.type === "LineString") {
-        const coords = (geom as any).coordinates;
-        if (coords && coords.length >= 3) {
-          // Verificar se está fechada (primeira e última coordenada são iguais ou muito próximas)
-          const first = coords[0];
-          const last = coords[coords.length - 1];
+      const geometry = feature.geometry;
+      
+      if (geometry.type === "Polygon" || geometry.type === "MultiPolygon") {
+        // Já é polígono, manter
+        geojson.features.push(feature);
+      } else if (geometry.type === "LineString") {
+        // Verificar se LineString está fechada (círculo)
+        const lineCoords = (geometry as any).coordinates;
+        if (lineCoords && lineCoords.length >= 3) {
+          const first = lineCoords[0];
+          const last = lineCoords[lineCoords.length - 1];
           const isClosed =
             (first[0] === last[0] && first[1] === last[1]) ||
             (Math.abs(first[0] - last[0]) < 0.000001 && Math.abs(first[1] - last[1]) < 0.000001);
 
           if (isClosed) {
-            // Converter LineString fechada para Polygon
-            geojson.features.push({
+            // Converter LineString fechada para Polygon (círculo)
+            const polygonFeature = {
               ...feature,
               geometry: {
-                type: "Polygon",
-                coordinates: [coords], // LineString vira o outer ring do Polygon
+                type: "Polygon" as const,
+                coordinates: [lineCoords], // Polygon precisa de array de rings
               },
-            });
+            };
+            geojson.features.push(polygonFeature);
             convertedCount++;
-            continue;
-          }
-        }
-      }
-
-      // MultiLineString também pode ser fechada
-      if (geom.type === "MultiLineString") {
-        const multiCoords = (geom as any).coordinates;
-        const polygons: number[][][] = [];
-
-        for (const lineCoords of multiCoords || []) {
-          if (lineCoords && lineCoords.length >= 3) {
-            const first = lineCoords[0];
-            const last = lineCoords[lineCoords.length - 1];
-            const isClosed =
-              (first[0] === last[0] && first[1] === last[1]) ||
-              (Math.abs(first[0] - last[0]) < 0.000001 && Math.abs(first[1] - last[1]) < 0.000001);
-
-            if (isClosed) {
-              polygons.push(lineCoords);
-            }
-          }
-        }
-
-        if (polygons.length > 0) {
-          if (polygons.length === 1) {
-            geojson.features.push({
-              ...feature,
-              geometry: {
-                type: "Polygon",
-                coordinates: polygons,
-              },
-            });
+            console.log(`[CoberturaService] LineString fechada convertida para Polygon (círculo)`);
           } else {
-            geojson.features.push({
-              ...feature,
-              geometry: {
-                type: "MultiPolygon",
-                coordinates: polygons.map((p) => [p]),
-              },
-            });
+            // LineString não fechada - não é área de cobertura
+            filteredCount++;
+            console.log(`[CoberturaService] LineString não fechada ignorada`);
           }
-          convertedCount++;
-          continue;
+        } else {
+          filteredCount++;
         }
+      } else if (geometry.type === "Point") {
+        // Point pode ser centro de círculo se tiver radius nas properties
+        // Por enquanto, ignorar (seria necessário processar <Circle> do KML antes da conversão)
+        filteredCount++;
+        console.log(`[CoberturaService] Point ignorado (não é área de cobertura)`);
+      } else {
+        // Outros tipos não suportados
+        filteredCount++;
+        console.log(`[CoberturaService] Tipo de geometria não suportado: ${geometry.type}`);
       }
     }
 
-    const finalFeatureCount = geojson.features.length;
     if (convertedCount > 0) {
-      console.log(
-        `[CoberturaService] ${convertedCount} LineString(s) fechada(s) convertida(s) para Polygon`
-      );
+      console.log(`[CoberturaService] ${convertedCount} LineString(s) fechada(s) convertida(s) para Polygon`);
     }
-    if (finalFeatureCount < originalFeatureCount) {
-      console.log(
-        `[CoberturaService] ${originalFeatureCount - finalFeatureCount} feature(s) não-polygon ignorada(s)`
-      );
+    if (filteredCount > 0) {
+      console.log(`[CoberturaService] ${filteredCount} feature(s) não-polygon ignorada(s)`);
     }
 
     // Validate geometry (precisa ter pelo menos uma área)
+    if (geojson.features.length === 0) {
+      return {
+        success: false,
+        errors: [
+          "Nenhuma área de cobertura válida encontrada. O arquivo deve conter polígonos ou círculos (LineString fechadas).",
+        ],
+      };
+    }
+
     const geometryValidation = GeometryService.validateGeometry(geojson);
     if (!geometryValidation.valid) {
       console.error(`[CoberturaService] Geometria inválida:`, geometryValidation.errors);
