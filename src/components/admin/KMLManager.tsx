@@ -59,6 +59,7 @@ export function KMLManager() {
   const [nomeArea, setNomeArea] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadSummary, setUploadSummary] = useState("");
   const [fileValidationError, setFileValidationError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -120,6 +121,7 @@ export function KMLManager() {
     setFileValidationError(null);
     setUploadError(null);
     setUploadSuccess(false);
+    setUploadSummary("");
 
     if (file) {
       const validation = validateFile(file);
@@ -165,6 +167,7 @@ export function KMLManager() {
     setUploading(true);
     setUploadError(null);
     setUploadSuccess(false);
+    setUploadSummary("");
 
     try {
       const formData = new FormData();
@@ -176,13 +179,25 @@ export function KMLManager() {
         formData.append("nomeArea", nomeArea.trim());
       }
 
-      await axios.post("/api/kml", formData, {
+      const response = await axios.post("/api/kml", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
 
       setUploadSuccess(true);
+      const areasCriadas = Array.isArray(response.data?.areas)
+        ? response.data.areas.length
+        : response.data?.area
+          ? 1
+          : 0;
+      if (areasCriadas > 1) {
+        setUploadSummary(
+          `${areasCriadas} áreas cadastradas automaticamente (múltiplas operadoras detectadas).`
+        );
+      } else {
+        setUploadSummary("Área de cobertura cadastrada com sucesso.");
+      }
       setSelectedFile(null);
       setOperadoraId("");
       setNomeArea("");
@@ -239,6 +254,7 @@ export function KMLManager() {
             </select>
             <p className="text-xs text-muted-foreground">
               Se vazio, o sistema tenta identificar no nome do arquivo e cria a operadora se nao existir.
+              Arquivos com múltiplas operadoras também são suportados.
             </p>
           </div>
 
@@ -294,7 +310,9 @@ export function KMLManager() {
               <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="font-semibold">KML processado com sucesso! A área de cobertura foi cadastrada.</span>
+              <span className="font-semibold">
+                KML/KMZ processado com sucesso! {uploadSummary}
+              </span>
             </div>
           )}
 

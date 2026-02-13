@@ -3,6 +3,7 @@ import { KMLParser } from "./kml-parser";
 import { GeometryService } from "./geometry-service";
 import { GeolocationService } from "./geolocation";
 import type { CoberturaArea, CreateCoberturaAreaInput, GeoLocation, CoberturaResponse } from "@/types";
+import type { FeatureCollection } from "geojson";
 import { getCache, setCache } from "@/lib/redis";
 import { PlanoService } from "../planos/service";
 import { OperadoraService } from "../operadoras/service";
@@ -39,39 +40,41 @@ export class CoberturaService {
       };
     }
 
-    console.log(`[CoberturaService] KML parseado com sucesso. ${parseResult.geojson.features?.length || 0} feature(s) encontrada(s)`);
+    console.log(
+      `[CoberturaService] KML parseado com sucesso. ${parseResult.geojson.features?.length || 0} feature(s) encontrada(s)`
+    );
 
-    // Usar apenas Polygon e MultiPolygon (KML pode ter LineString - ignorar para cobertura)
-    const geojson = parseResult.geojson;
-    const originalFeatureCount = geojson.features?.length || 0;
-    geojson.features = (geojson.features || []).filter((f) => {
-      const t = f.geometry?.type;
-      return t === "Polygon" || t === "MultiPolygon";
-    });
+    return this.processGeoJSON(parseResult.geojson, operadoraId, nomeArea, kmlString);
+  }
 
-    const filteredFeatureCount = geojson.features.length;
-    if (filteredFeatureCount < originalFeatureCount) {
-      console.log(`[CoberturaService] ${originalFeatureCount - filteredFeatureCount} feature(s) não-polygon ignorada(s)`);
-    }
-
-    // Validate geometry (precisa ter pelo menos uma área)
-    const geometryValidation = GeometryService.validateGeometry(geojson);
-    if (!geometryValidation.valid) {
-      console.error(`[CoberturaService] Geometria inválida:`, geometryValidation.errors);
+  /**
+   * Process and save GeoJSON already parsed from KML/KMZ
+   */
+  async processGeoJSON(
+    geojson: FeatureCollection,
+    operadoraId: string,
+    nomeArea: string,
+    kmlOriginal?: string
+  ): Promise<{
+    success: boolean;
+    area?: CoberturaArea;
+    errors: string[];
+  }> {
+    const prepared = this.prepareCoverageGeoJSON(geojson);
+    if (!prepared.success || !prepared.geojson) {
       return {
         success: false,
-        errors: geometryValidation.errors,
+        errors: prepared.errors,
       };
     }
 
-    // Save to database
     try {
       console.log(`[CoberturaService] Salvando área de cobertura no banco de dados`);
       const area = await this.repository.create({
         operadoraId,
         nomeArea,
-        geometria: geojson,
-        kmlOriginal: kmlString,
+        geometria: prepared.geojson,
+        kmlOriginal: kmlOriginal || null,
       });
 
       console.log(`[CoberturaService] Área de cobertura salva com sucesso. ID: ${area.id}`);
@@ -91,6 +94,128 @@ export class CoberturaService {
         errors: [error instanceof Error ? error.message : "Erro ao salvar área de cobertura"],
       };
     }
+  }
+
+  private prepareCoverageGeoJSON(
+    source: FeatureCollection
+  ): { success: boolean; geojson?: FeatureCollection; errors: string[] } {
+    // Clone para evitar mutar objeto de entrada
+    const geojson: FeatureCollection = {
+      type: "FeatureCollection",
+      features: [],
+    };
+
+    const originalFeatureCount = source.features?.length || 0;
+    let convertedCount = 0;
+
+    // Processar todas as features e converter LineString fechadas em Polygon
+    for (const feature of source.features || []) {
+      if (!feature.geometry) continue;
+
+      const geom = feature.geometry;
+      
+      // Polygon e MultiPolygon já são válidos
+      if (geom.type === "Polygon" || geom.type === "MultiPolygon") {
+        geojson.features.push(feature);
+        continue;
+      }
+
+      // LineString fechada = círculo/polígono, converter para Polygon
+      if (geom.type === "LineString") {
+        const coords = (geom as any).coordinates;
+        if (coords && coords.length >= 3) {
+          // Verificar se está fechada (primeira e última coordenada são iguais ou muito próximas)
+          const first = coords[0];
+          const last = coords[coords.length - 1];
+          const isClosed =
+            (first[0] === last[0] && first[1] === last[1]) ||
+            (Math.abs(first[0] - last[0]) < 0.000001 && Math.abs(first[1] - last[1]) < 0.000001);
+
+          if (isClosed) {
+            // Converter LineString fechada para Polygon
+            geojson.features.push({
+              ...feature,
+              geometry: {
+                type: "Polygon",
+                coordinates: [coords], // LineString vira o outer ring do Polygon
+              },
+            });
+            convertedCount++;
+            continue;
+          }
+        }
+      }
+
+      // MultiLineString também pode ser fechada
+      if (geom.type === "MultiLineString") {
+        const multiCoords = (geom as any).coordinates;
+        const polygons: number[][][] = [];
+
+        for (const lineCoords of multiCoords || []) {
+          if (lineCoords && lineCoords.length >= 3) {
+            const first = lineCoords[0];
+            const last = lineCoords[lineCoords.length - 1];
+            const isClosed =
+              (first[0] === last[0] && first[1] === last[1]) ||
+              (Math.abs(first[0] - last[0]) < 0.000001 && Math.abs(first[1] - last[1]) < 0.000001);
+
+            if (isClosed) {
+              polygons.push(lineCoords);
+            }
+          }
+        }
+
+        if (polygons.length > 0) {
+          if (polygons.length === 1) {
+            geojson.features.push({
+              ...feature,
+              geometry: {
+                type: "Polygon",
+                coordinates: polygons,
+              },
+            });
+          } else {
+            geojson.features.push({
+              ...feature,
+              geometry: {
+                type: "MultiPolygon",
+                coordinates: polygons.map((p) => [p]),
+              },
+            });
+          }
+          convertedCount++;
+          continue;
+        }
+      }
+    }
+
+    const finalFeatureCount = geojson.features.length;
+    if (convertedCount > 0) {
+      console.log(
+        `[CoberturaService] ${convertedCount} LineString(s) fechada(s) convertida(s) para Polygon`
+      );
+    }
+    if (finalFeatureCount < originalFeatureCount) {
+      console.log(
+        `[CoberturaService] ${originalFeatureCount - finalFeatureCount} feature(s) não-polygon ignorada(s)`
+      );
+    }
+
+    // Validate geometry (precisa ter pelo menos uma área)
+    const geometryValidation = GeometryService.validateGeometry(geojson);
+    if (!geometryValidation.valid) {
+      console.error(`[CoberturaService] Geometria inválida:`, geometryValidation.errors);
+      return {
+        success: false,
+        errors: geometryValidation.errors,
+      };
+    }
+
+    return {
+      success: true,
+      geojson,
+      errors: [],
+    };
   }
 
   /**

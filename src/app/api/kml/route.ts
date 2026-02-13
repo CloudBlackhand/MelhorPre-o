@@ -77,6 +77,57 @@ function inferFromFileName(fileName: string): { operadoraNome?: string; nomeArea
   };
 }
 
+function inferFromFeatureLabel(label: string): { operadoraNome?: string; nomeArea?: string } {
+  if (!label) return {};
+  const cleaned = label.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+  const parts = cleaned.split(/\s*[-|:]\s*/).filter(Boolean);
+  if (parts.length < 2) {
+    return { nomeArea: cleaned || undefined };
+  }
+
+  const operadoraNome = parts[0].trim();
+  const nomeArea = parts.slice(1).join(" - ").trim();
+  return {
+    operadoraNome: operadoraNome || undefined,
+    nomeArea: nomeArea || undefined,
+  };
+}
+
+function extractFeatureLabel(feature: any): string {
+  const properties = feature?.properties || {};
+  const value =
+    properties.name ||
+    properties.Name ||
+    properties.title ||
+    properties.TITLE ||
+    properties.descricao ||
+    properties.description ||
+    "";
+  return typeof value === "string" ? value.trim() : "";
+}
+
+async function resolveOrCreateOperadoraId(operadoraNome: string): Promise<string> {
+  const normalizedName = normalizeText(operadoraNome);
+  const operadoras = await operadoraService.getAll();
+
+  const matchedOperadora = operadoras.find((op) => {
+    const opName = normalizeText(op.nome);
+    return opName === normalizedName || normalizedName.includes(opName) || opName.includes(normalizedName);
+  });
+
+  if (matchedOperadora) {
+    return matchedOperadora.id;
+  }
+
+  const uniqueSlug = await buildUniqueSlug(operadoraNome);
+  const createdOperadora = await operadoraService.create({
+    nome: operadoraNome,
+    slug: uniqueSlug,
+    ativo: true,
+  });
+  return createdOperadora.id;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authError = await requireAdmin(request);
@@ -111,73 +162,150 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Resolve operadora e nome da área automaticamente quando não enviados
-    const inferred = inferFromFileName(file.name);
-    const resolvedNomeArea = nomeArea || inferred.nomeArea;
-    let resolvedOperadoraId = operadoraId;
+    // Parse uma vez e decide se salva 1 ou N áreas/operadoras
+    const parseResult = KMLParser.parse(kmlString);
+    if (!parseResult.isValid) {
+      return NextResponse.json(
+        { error: "Erro ao processar KML", details: parseResult.errors },
+        { status: 400 }
+      );
+    }
 
-    if (!resolvedNomeArea) {
+    const inferredFromFile = inferFromFileName(file.name);
+
+    // Se operadora foi definida manualmente, mantém comportamento de área única
+    if (operadoraId) {
+      const resolvedNomeArea = nomeArea || inferredFromFile.nomeArea || file.name.replace(/\.(kml|kmz)$/i, "");
+      const singleResult = await coberturaService.processGeoJSON(
+        parseResult.geojson,
+        operadoraId,
+        resolvedNomeArea,
+        kmlString
+      );
+
+      if (!singleResult.success) {
+        return NextResponse.json(
+          { error: "Erro ao processar KML", details: singleResult.errors },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        area: singleResult.area,
+        areas: singleResult.area ? [singleResult.area] : [],
+      });
+    }
+
+    // Auto: tenta detectar múltiplas operadoras a partir dos nomes das features
+    const groups = new Map<
+      string,
+      { operadoraNome: string; nomeAreaHint?: string; features: any[] }
+    >();
+
+    for (const feature of parseResult.geojson.features || []) {
+      const label = extractFeatureLabel(feature);
+      const fromLabel = inferFromFeatureLabel(label);
+      const operadoraNome = fromLabel.operadoraNome || inferredFromFile.operadoraNome;
+      const nomeAreaHint = fromLabel.nomeArea || inferredFromFile.nomeArea || label || undefined;
+
+      if (!operadoraNome) continue;
+
+      const key = normalizeText(operadoraNome);
+      const current = groups.get(key);
+      if (current) {
+        current.features.push(feature);
+        if (!current.nomeAreaHint && nomeAreaHint) current.nomeAreaHint = nomeAreaHint;
+      } else {
+        groups.set(key, {
+          operadoraNome,
+          nomeAreaHint,
+          features: [feature],
+        });
+      }
+    }
+
+    // Fallback: não encontrou operadora em feature, usa inferência por nome do arquivo
+    if (groups.size === 0 && inferredFromFile.operadoraNome) {
+      groups.set(normalizeText(inferredFromFile.operadoraNome), {
+        operadoraNome: inferredFromFile.operadoraNome,
+        nomeAreaHint: inferredFromFile.nomeArea,
+        features: parseResult.geojson.features || [],
+      });
+    }
+
+    if (groups.size === 0) {
       return NextResponse.json(
         {
-          error: "Não foi possível identificar o nome da área automaticamente. Informe manualmente.",
+          error:
+            "Não foi possível identificar operadora(s) automaticamente no arquivo. Selecione manualmente a operadora.",
         },
         { status: 400 }
       );
     }
 
-    if (!resolvedOperadoraId) {
-      const operadoras = await operadoraService.getAll();
-      const normalizedFileName = normalizeText(file.name);
-      const normalizedInferredOperadora = inferred.operadoraNome
-        ? normalizeText(inferred.operadoraNome)
-        : "";
+    const createdAreas = [];
+    const errors: string[] = [];
 
-      const matchedOperadora = operadoras.find((op) => {
-        const opName = normalizeText(op.nome);
-        return (
-          normalizedFileName.includes(opName) ||
-          (normalizedInferredOperadora && normalizedInferredOperadora.includes(opName))
+    for (const group of groups.values()) {
+      try {
+        const resolvedOperadoraId = await resolveOrCreateOperadoraId(group.operadoraNome);
+        const groupGeoJSON = {
+          type: "FeatureCollection" as const,
+          features: group.features,
+        };
+
+        const baseNomeArea =
+          nomeArea ||
+          group.nomeAreaHint ||
+          inferredFromFile.nomeArea ||
+          `Cobertura ${group.operadoraNome}`;
+        const resolvedNomeArea =
+          groups.size > 1 && nomeArea
+            ? `${baseNomeArea} - ${group.operadoraNome}`
+            : baseNomeArea;
+
+        const result = await coberturaService.processGeoJSON(
+          groupGeoJSON,
+          resolvedOperadoraId,
+          resolvedNomeArea,
+          kmlString
         );
-      });
 
-      if (matchedOperadora) {
-        resolvedOperadoraId = matchedOperadora.id;
-      } else if (inferred.operadoraNome) {
-        const uniqueSlug = await buildUniqueSlug(inferred.operadoraNome);
-        const createdOperadora = await operadoraService.create({
-          nome: inferred.operadoraNome,
-          slug: uniqueSlug,
-          ativo: true,
-        });
-        resolvedOperadoraId = createdOperadora.id;
-      } else {
-        return NextResponse.json(
-          {
-            error:
-              "Não foi possível identificar a operadora automaticamente. Selecione uma operadora manualmente.",
-          },
-          { status: 400 }
+        if (result.success && result.area) {
+          createdAreas.push(result.area);
+        } else {
+          errors.push(
+            `Falha ao processar operadora "${group.operadoraNome}": ${
+              result.errors.join("; ") || "erro desconhecido"
+            }`
+          );
+        }
+      } catch (err) {
+        errors.push(
+          `Falha ao processar operadora "${group.operadoraNome}": ${
+            err instanceof Error ? err.message : "erro desconhecido"
+          }`
         );
       }
     }
 
-    // Process KML
-    const result = await coberturaService.processKML(
-      kmlString,
-      resolvedOperadoraId,
-      resolvedNomeArea
-    );
-
-    if (!result.success) {
+    if (createdAreas.length === 0) {
       return NextResponse.json(
-        { error: "Erro ao processar KML", details: result.errors },
+        { error: "Erro ao processar KML/KMZ", details: errors },
         { status: 400 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      area: result.area,
+      area: createdAreas[0],
+      areas: createdAreas,
+      warnings: errors,
+      summary: {
+        operadorasDetectadas: groups.size,
+        areasCriadas: createdAreas.length,
+      },
     });
   } catch (error) {
     console.error("Error processing KML:", error);

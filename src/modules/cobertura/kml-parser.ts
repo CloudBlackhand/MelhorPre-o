@@ -10,6 +10,73 @@ export interface KMLParseResult {
 
 export class KMLParser {
   /**
+   * Normalize coordinates to GeoJSON format [lng, lat]
+   * KML uses [lat, lng] but GeoJSON/Turf.js expects [lng, lat]
+   */
+  private static normalizeCoordinates(geojson: FeatureCollection): FeatureCollection {
+    const normalized: FeatureCollection = {
+      type: "FeatureCollection",
+      features: geojson.features.map((feature) => {
+        if (!feature.geometry) return feature;
+
+        const geometry = feature.geometry;
+        let normalizedCoords: any;
+
+        if (geometry.type === "Point") {
+          const coords = (geometry as any).coordinates;
+          if (Array.isArray(coords) && coords.length >= 2) {
+            // Se lat > 90, provavelmente está invertido
+            if (Math.abs(coords[0]) > 90) {
+              normalizedCoords = [coords[1], coords[0]];
+            } else {
+              normalizedCoords = coords;
+            }
+          }
+        } else if (geometry.type === "Polygon") {
+          normalizedCoords = (geometry as any).coordinates.map((ring: number[][]) =>
+            ring.map((coord) => {
+              if (Array.isArray(coord) && coord.length >= 2) {
+                // Se primeiro valor > 90, provavelmente está invertido (lat, lng -> lng, lat)
+                if (Math.abs(coord[0]) > 90) {
+                  return [coord[1], coord[0], ...coord.slice(2)];
+                }
+                return coord;
+              }
+              return coord;
+            })
+          );
+        } else if (geometry.type === "MultiPolygon") {
+          normalizedCoords = (geometry as any).coordinates.map((polygon: number[][][]) =>
+            polygon.map((ring: number[][]) =>
+              ring.map((coord) => {
+                if (Array.isArray(coord) && coord.length >= 2) {
+                  if (Math.abs(coord[0]) > 90) {
+                    return [coord[1], coord[0], ...coord.slice(2)];
+                  }
+                  return coord;
+                }
+                return coord;
+              })
+            )
+          );
+        } else {
+          return feature;
+        }
+
+        return {
+          ...feature,
+          geometry: {
+            ...geometry,
+            coordinates: normalizedCoords || (geometry as any).coordinates,
+          },
+        };
+      }),
+    };
+
+    return normalized;
+  }
+
+  /**
    * Parse KML string to GeoJSON
    */
   static parse(kmlString: string): KMLParseResult {
@@ -61,6 +128,10 @@ export class KMLParser {
       // Convert KML to GeoJSON
       try {
         geojson = tj.kml(kml) as FeatureCollection;
+        
+        // Normalizar coordenadas: garantir formato [lng, lat] para GeoJSON
+        // toGeoJSON pode retornar [lat, lng] em alguns casos
+        geojson = this.normalizeCoordinates(geojson);
       } catch (conversionError) {
         errors.push(`Erro ao converter KML para GeoJSON: ${conversionError instanceof Error ? conversionError.message : "Erro desconhecido"}`);
         return {
@@ -93,6 +164,8 @@ export class KMLParser {
       // Validate each feature and count geometry types
       let polygonCount = 0;
       let multiPolygonCount = 0;
+      let lineStringCount = 0;
+      let closedLineStringCount = 0;
       let otherGeometryCount = 0;
 
       geojson.features.forEach((feature, index) => {
@@ -108,6 +181,20 @@ export class KMLParser {
               polygonCount++;
             } else if (geom.type === "MultiPolygon") {
               multiPolygonCount++;
+            } else if (geom.type === "LineString") {
+              lineStringCount++;
+              // Verificar se LineString está fechada (será convertida para Polygon depois)
+              const coords = (geom as any).coordinates;
+              if (coords && coords.length >= 3) {
+                const first = coords[0];
+                const last = coords[coords.length - 1];
+                const isClosed =
+                  (first[0] === last[0] && first[1] === last[1]) ||
+                  (Math.abs(first[0] - last[0]) < 0.000001 && Math.abs(first[1] - last[1]) < 0.000001);
+                if (isClosed) {
+                  closedLineStringCount++;
+                }
+              }
             } else {
               otherGeometryCount++;
             }
@@ -115,9 +202,20 @@ export class KMLParser {
         }
       });
 
-      // Warn if no polygons found
-      if (polygonCount === 0 && multiPolygonCount === 0) {
-        errors.push(`KML não contém polígonos válidos. Encontrados ${otherGeometryCount} geometria(s) de outros tipos. Para cobertura, são necessários polígonos (Polygon ou MultiPolygon).`);
+      // Warn if no polygons or closed LineStrings found
+      if (polygonCount === 0 && multiPolygonCount === 0 && closedLineStringCount === 0) {
+        errors.push(
+          `KML não contém polígonos ou círculos válidos. ` +
+          `Encontrados: ${polygonCount} Polygon(s), ${multiPolygonCount} MultiPolygon(s), ` +
+          `${lineStringCount} LineString(s) (${closedLineStringCount} fechada(s)), ` +
+          `${otherGeometryCount} outro(s) tipo(s). ` +
+          `Para cobertura, são necessários polígonos ou LineString fechadas (círculos).`
+        );
+      } else if (closedLineStringCount > 0) {
+        // Info: LineStrings fechadas serão convertidas para Polygon
+        console.log(
+          `[KMLParser] ${closedLineStringCount} LineString(s) fechada(s) detectada(s) - serão convertidas para Polygon`
+        );
       }
 
       return {
