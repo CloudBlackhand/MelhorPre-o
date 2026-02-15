@@ -169,10 +169,10 @@ export function RocketBanner() {
         </div>
       )}
 
-      {/* LAYER 2: Rocket - ao rolar, posição livre; clicável para ir à home */}
+      {/* LAYER 2: Rocket - acima da faixa do banner (z-index alto) */}
       {!showInitialState && rocketOpacity > 0 && (
         <div
-          className="fixed pointer-events-none z-[11]"
+          className="fixed pointer-events-none z-[30]"
           style={{
             left: '50%',
             top: `${rocketY}%`,
