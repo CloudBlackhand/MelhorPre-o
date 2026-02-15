@@ -5,6 +5,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { BuscaCobertura } from "@/components/public/BuscaCobertura";
 
+export type RocketBannerProps = {
+  /** Conteúdo fixo atrás do banner: o zipper REVELA este bloco (não rola a página). */
+  revealContent?: React.ReactNode;
+};
+
 const LERP_FACTOR = 0.22; // Resposta mais rápida ao scroll = efeito some mais rápido
 
 /** Posições fixas de estrelas (determinísticas para evitar hidratação) */
@@ -20,7 +25,7 @@ function n(v: number) {
   return Math.max(0, Math.min(1, v));
 }
 
-export function RocketBanner() {
+export function RocketBanner({ revealContent }: RocketBannerProps) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const targetProgressRef = useRef(0);
 
@@ -120,6 +125,17 @@ export function RocketBanner() {
       {/* SVG clipPath com curvas Bézier reais (Q) — curvas nativas, sem “quadrado” */}
       {/* Spacer 100vh = uma única barra de rolagem (como na referência) */}
       <div style={{ minHeight: "100vh" }} aria-hidden="true" />
+
+      {/* LAYER 0: Conteúdo “atrás” do banner — o zipper REVELA este bloco (fixo, não rola) */}
+      {bannerVisible && revealContent != null && (
+        <div
+          className="fixed top-0 left-0 w-full h-screen overflow-hidden"
+          style={{ zIndex: 5 }}
+          aria-hidden="true"
+        >
+          {revealContent}
+        </div>
+      )}
 
       {/* LAYER 1: Banner com clip-path via SVG path (curvas fluidas) */}
       {bannerVisible && (

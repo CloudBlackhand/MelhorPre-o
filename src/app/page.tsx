@@ -4,12 +4,19 @@ import { RocketBanner } from "@/components/public/RocketBanner";
 export default function HomePage() {
   return (
     <main className="min-h-screen flex flex-col bg-white" style={{ margin: 0, padding: 0 }}>
-      {/* Banner com foguete e efeito zipper (spacer 100vh + overlay fixo); uma única barra de rolagem */}
-      <RocketBanner />
+      {/* Banner: zipper REVELA o bloco de planos (fixo atrás); foguete sobe; uma barra de rolagem */}
+      <RocketBanner
+        revealContent={
+          <div className="h-full w-full py-16 px-4 bg-gray-50">
+            <div className="max-w-7xl mx-auto">
+              <PlanosDestaque />
+            </div>
+          </div>
+        }
+      />
 
-      {/* Conteúdo no fluxo do documento - revelado pelo zipper ao rolar */}
-      {/* pt grande evita que os cards (badges "Mais Popular" etc.) apareçam no recorte do banner */}
-      <div className="flex-1 pt-[70vh] pb-16 px-4 bg-gray-50">
+      {/* Conteúdo no fluxo: continuação após o spacer 100vh (transição suave com o reveal) */}
+      <div className="flex-1 pt-16 pb-16 px-4 bg-gray-50">
         <div className="max-w-7xl mx-auto">
           <PlanosDestaque />
         </div>
