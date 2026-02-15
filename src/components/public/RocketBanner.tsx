@@ -16,7 +16,6 @@ const STARS_BANNER = Array.from({ length: 60 }, (_, i) => ({
   opacity: (i % 5) * 0.1 + 0.3,
 }));
 
-/** Formata número para path SVG (0–1 para objectBoundingBox) */
 function n(v: number) {
   return Math.max(0, Math.min(1, v));
 }
@@ -25,13 +24,11 @@ export function RocketBanner() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const targetProgressRef = useRef(0);
 
-  // Alvo do scroll (atualizado no scroll)
+  // 100vh de scroll = progresso 0 → 1 (animação correta como na referência Untitled.js/SVG)
   useEffect(() => {
-    // ~10% do viewport de scroll = zipper já dissipado (efeito some bem rápido)
-    const zipperScrollHeight = () => window.innerHeight * 0.1;
     const handleScroll = () => {
-      const scrollY = window.scrollY;
-      targetProgressRef.current = Math.min(scrollY / zipperScrollHeight(), 1);
+      const zipperScrollHeight = window.innerHeight;
+      targetProgressRef.current = Math.min(window.scrollY / zipperScrollHeight, 1);
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
@@ -56,32 +53,30 @@ export function RocketBanner() {
 
   // === ZIPPER REVEAL EFFECT ===
   // Easing ease-out quad: resposta rápida no início, suave no fim (transição mais rápida)
-  const easeOutQuad = (t: number) => 1 - (1 - t) * (1 - t);
-  const p = easeOutQuad(scrollProgress);
+  const p = scrollProgress;
+  const V_SIDE_Y = (774 / 1080) * 100;
+  const tipYPercent = 100 - p * 100;
+  const sideYPercent = 100 - p * (100 - V_SIDE_Y);
+  const clipPolygon =
+    p === 0
+      ? "polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)"
+      : `polygon(0% 0%, 100% 0%, 100% ${sideYPercent}%, 50% ${tipYPercent}%, 0% ${sideYPercent}%, 0% 0%)`;
+  const useClip = p > 0;
 
-  // Ponta do zipper: sobe da base em direção ao topo
-  const zipperTipY = 100 - (p * 150);
-
-  // Largura da abertura na base (em %)
-  const zipperWidthAtBottom = p * 200;
-  const leftEdge = Math.max(0, 50 - zipperWidthAtBottom);
-  const rightEdge = Math.min(100, 50 + zipperWidthAtBottom);
-
-  // Faixas inferior esquerda e direita LEVANTAM junto com a abertura (efeito zipper real)
-  const liftY = p * 32;
-  const bottomLeftY = 100 - liftY;
-  const bottomRightY = 100 - liftY;
-  const tipY = Math.max(-50, zipperTipY);
+  const rocketY = p === 0 ? 75 : Math.max(8, Math.min(85, tipYPercent + 5));
+  const rocketRotationDeg = -720 * (1 - p);
+  const rocketScale = 1 + p * 0.25;
 
   // === REFEITO: clip-path via SVG path() com curvas Bézier reais (Q) ===
   // Coordenadas em 0–1 para objectBoundingBox; curvas nativas = transição fluida, sem “quadrado”
-  const rx = n(rightEdge / 100);
-  const ry = n(bottomRightY / 100);
-  const lx = n(leftEdge / 100);
-  const ly = n(bottomLeftY / 100);
-  const tipYNorm = n((tipY + 50) / 150); // tipY % (-50..100) → 0..1
+  const headerOpacity = Math.max(0, 1 - p * 2);
+  const bannerVisible = p < 1;
+  const rx = n(0.5);
+  const ry = n(sideYPercent / 100);
+  const lx = n(0);
+  const ly = n(sideYPercent / 100);
+  const tipYNorm = n(tipYPercent / 100);
 
-  // Controles das bordas da abertura (Bézier suave em direção à ponta)
   const crx = n(rx * 0.75 + 0.12);
   const cry = n(ry * 0.6 + tipYNorm * 0.4);
   const clx = n(lx * 0.75 + 0.13);
@@ -104,28 +99,19 @@ export function RocketBanner() {
           "L 0 0 Z",
         ].join(" ");
 
-  const useSvgClip = scrollProgress > 0;
-  
-  // Rocket position (usa p para ficar em sync com o zipper suavizado)
-  const rocketY = scrollProgress === 0 ? 75 : Math.max(5, Math.min(90, zipperTipY));
-  const rocketScale = 1 + (p * 0.3);
-  const headerOpacity = Math.max(0, 1 - p * 2);
-  
-  // Banner visibility (hides completely when zipper is fully open)
-  const bannerVisible = scrollProgress < 1;
 
   // Quando o foguete chega a 50% da tela, banner e foguete somem juntos, gradativamente e rápido
   const fadeStartY = 50;  // foguete no meio da tela = começa a sumir
-  const fadeEndY = 28;    // um pouco acima = já sumiu (faixa curta = sumir mais rápido)
+  const fadeEndY = 25;
   const unifiedFadeOpacity =
     rocketY >= fadeStartY ? 1 : rocketY <= fadeEndY ? 0 : (rocketY - fadeEndY) / (fadeStartY - fadeEndY);
 
   const bannerOpacity = unifiedFadeOpacity;
   // Foguete: no estado inicial (bounce) fica 1; ao rolar, usa o mesmo fade que o banner
-  const rocketOpacity = scrollProgress === 0 ? 1 : unifiedFadeOpacity;
+  const rocketOpacity = p === 0 ? 1 : unifiedFadeOpacity;
 
   // Show bounce animation and arrow only when not scrolling
-  const showInitialState = scrollProgress === 0;
+  const showInitialState = p === 0;
 
   // Estrelas determinísticas (evita erro de hidratação: mesmo resultado no servidor e no cliente)
   const stars = STARS_BANNER;
@@ -133,18 +119,8 @@ export function RocketBanner() {
   return (
     <>
       {/* SVG clipPath com curvas Bézier reais (Q) — curvas nativas, sem “quadrado” */}
-      {useSvgClip && (
-        <svg width="0" height="0" aria-hidden="true" style={{ position: "absolute" }}>
-          <defs>
-            <clipPath id="zipperClip" clipPathUnits="objectBoundingBox">
-              <path d={pathD} />
-            </clipPath>
-          </defs>
-        </svg>
-      )}
-
-      {/* Spacer curto — pouco scroll e o efeito já termina */}
-      <div style={{ minHeight: '15vh' }} aria-hidden="true" />
+      {/* Spacer 100vh = uma única barra de rolagem (como na referência) */}
+      <div style={{ minHeight: "100vh" }} aria-hidden="true" />
 
       {/* LAYER 1: Banner com clip-path via SVG path (curvas fluidas) */}
       {bannerVisible && (
@@ -152,8 +128,8 @@ export function RocketBanner() {
           className="fixed top-0 left-0 w-full h-screen bg-[#1A2C59] overflow-hidden transition-opacity duration-150"
           style={{ 
             zIndex: 10,
-            clipPath: useSvgClip ? "url(#zipperClip)" : "none",
-            WebkitClipPath: useSvgClip ? "url(#zipperClip)" : "none",
+            clipPath: useClip ? clipPolygon : "none",
+            WebkitClipPath: useClip ? clipPolygon : "none",
             opacity: bannerOpacity,
           }}
         >
@@ -201,7 +177,7 @@ export function RocketBanner() {
           style={{
             left: '50%',
             top: `${rocketY}%`,
-            transform: `translate(-50%, -50%) rotate(-20deg) scale(${rocketScale})`,
+            transform: `translate(-50%, -50%) rotate(${rocketRotationDeg}deg) scale(${rocketScale})`,
             opacity: rocketOpacity,
             willChange: 'transform, top, opacity',
           }}
