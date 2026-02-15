@@ -4,8 +4,8 @@ import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ComparadorPlanos } from "@/components/public/ComparadorPlanos";
-import { BuscaCobertura } from "@/components/public/BuscaCobertura";
+import { ComparadorPlanos } from "../../components/public/ComparadorPlanos";
+import { BuscaCobertura } from "../../components/public/BuscaCobertura";
 
 /** Posições fixas de estrelas (determinísticas para evitar erro de hidratação) */
 const STARS_FAIXA = Array.from({ length: 50 }, (_, i) => ({
