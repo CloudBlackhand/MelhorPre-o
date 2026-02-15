@@ -27,6 +27,8 @@ interface CardPlanoProps {
       logoUrl?: string | null;
     };
   };
+  /** Esconde o badge (Mais Popular etc.) — usado na camada de reveal do zipper para as tags não aparecerem na hora errada */
+  hideBadge?: boolean;
 }
 
 /**
@@ -42,12 +44,12 @@ interface CardPlanoProps {
  * 
  * Para customizar, edite os componentes individuais em ./card-plano/
  */
-export function CardPlano({ plano }: CardPlanoProps) {
+export function CardPlano({ plano, hideBadge = false }: CardPlanoProps) {
   const badge = getBadgePorPreco(plano.preco);
 
   return (
     <Card className="h-full flex flex-col border-2 border-gray-200 hover:border-[#1e3a8a] hover:shadow-xl transition-all duration-300 group overflow-hidden relative">
-      <CardPlanoBadge texto={badge.text} cor={badge.color} />
+      {!hideBadge && <CardPlanoBadge texto={badge.text} cor={badge.color} />}
 
       <CardContent className="flex-1 flex flex-col p-6">
         <CardPlanoLogo operadora={plano.operadora} />

@@ -21,7 +21,12 @@ interface PlanoComOperadora {
   };
 }
 
-export function PlanosDestaque() {
+interface PlanosDestaqueProps {
+  /** Esconde badges nos cards (usado na camada de reveal do zipper para as tags não aparecerem na hora errada) */
+  hideBadges?: boolean;
+}
+
+export function PlanosDestaque({ hideBadges = false }: PlanosDestaqueProps) {
   const [planos, setPlanos] = useState<PlanoComOperadora[]>([]);
   const [loading, setLoading] = useState(true);
   const [usingPlaceholder, setUsingPlaceholder] = useState(false);
@@ -105,7 +110,7 @@ export function PlanosDestaque() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {planos.map((plano) => (
-          <CardPlano key={plano.id} plano={plano} />
+          <CardPlano key={plano.id} plano={plano} hideBadge={hideBadges} />
         ))}
       </div>
 

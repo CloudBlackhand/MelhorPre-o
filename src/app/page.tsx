@@ -9,7 +9,7 @@ export default function HomePage() {
         revealContent={
           <div className="h-full w-full py-16 px-4 bg-gray-50">
             <div className="max-w-7xl mx-auto">
-              <PlanosDestaque />
+              <PlanosDestaque hideBadges />
             </div>
           </div>
         }
