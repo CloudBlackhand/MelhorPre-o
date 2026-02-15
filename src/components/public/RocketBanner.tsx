@@ -64,8 +64,7 @@ export function RocketBanner() {
   const useClip = p > 0;
 
   const rocketY = p === 0 ? 75 : Math.max(8, Math.min(85, tipYPercent + 5));
-  const rocketRotationDeg = -720 * (1 - p);
-  const rocketScale = 1 + p * 0.25;
+  const rocketScale = 1 + p * 0.3;
 
   // === REFEITO: clip-path via SVG path() com curvas Bézier reais (Q) ===
   // Coordenadas em 0–1 para objectBoundingBox; curvas nativas = transição fluida, sem “quadrado”
@@ -177,7 +176,7 @@ export function RocketBanner() {
           style={{
             left: '50%',
             top: `${rocketY}%`,
-            transform: `translate(-50%, -50%) rotate(${rocketRotationDeg}deg) scale(${rocketScale})`,
+            transform: `translate(-50%, -50%) rotate(-20deg) scale(${rocketScale})`,
             opacity: rocketOpacity,
             willChange: 'transform, top, opacity',
           }}
