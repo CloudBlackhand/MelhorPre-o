@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
         console.log(`[API] Cobertura encontrada: ${result.operadoras.length} operadora(s)`);
         
         // Registrar busca no tracking (assíncrono, não bloqueia resposta)
+        // Reutiliza cidade/estado do resultado do checkCoverageByCEP (sem chamar geocoding de novo)
         try {
           let sessionId = request.cookies.get("session_id")?.value;
           if (!sessionId) {
@@ -49,19 +50,14 @@ export async function GET(request: NextRequest) {
             utmCampaign,
           });
 
-          // Obter cidade e estado do CEP para tracking
-          const { GeolocationService } = await import("@/modules/cobertura/geolocation");
-          const location = await GeolocationService.cepToCoordinates(normalizedCEP);
-
           await TrackingService.trackBuscaCobertura(visitanteId, {
             cep: normalizedCEP,
-            cidade: location?.cidade,
-            estado: location?.estado,
+            cidade: result.cidade,
+            estado: result.estado,
             encontrouCobertura: result.operadoras.length > 0,
             operadorasEncontradas: result.operadoras.map((op: any) => op.id),
           });
         } catch (trackingError) {
-          // Não falhar se tracking der erro
           console.error("Error tracking busca:", trackingError);
         }
         

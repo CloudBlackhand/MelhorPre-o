@@ -77,4 +77,33 @@ export async function deleteCache(key: string): Promise<boolean> {
   }
 }
 
+/**
+ * Delete all keys matching a prefix (e.g. "cobertura:*").
+ * Uses SCAN to avoid blocking Redis on large datasets.
+ */
+export async function deleteCacheByPrefix(prefix: string): Promise<number> {
+  const client = getRedis();
+  if (!client) return 0;
+
+  try {
+    let cursor = "0";
+    let deletedCount = 0;
+    const pattern = prefix.endsWith("*") ? prefix : `${prefix}*`;
+
+    do {
+      const [nextCursor, keys] = await client.scan(cursor, "MATCH", pattern, "COUNT", 100);
+      cursor = nextCursor;
+      if (keys.length > 0) {
+        await client.del(...keys);
+        deletedCount += keys.length;
+      }
+    } while (cursor !== "0");
+
+    return deletedCount;
+  } catch (error) {
+    console.error("Redis deleteCacheByPrefix error:", error);
+    return 0;
+  }
+}
+
 

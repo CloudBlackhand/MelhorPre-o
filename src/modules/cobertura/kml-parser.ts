@@ -9,71 +9,82 @@ export interface KMLParseResult {
 }
 
 export class KMLParser {
+  // Brazil bounds: GeoJSON format [lng, lat] → lng -75 to -30, lat -35 to 5
+  private static readonly BRAZIL_LNG_MIN = -75;
+  private static readonly BRAZIL_LNG_MAX = -30;
+  private static readonly BRAZIL_LAT_MIN = -35;
+  private static readonly BRAZIL_LAT_MAX = 5;
+
   /**
-   * Normalize coordinates to GeoJSON format [lng, lat]
-   * KML uses [lat, lng] but GeoJSON/Turf.js expects [lng, lat]
+   * Validate and fix coordinate order if needed.
+   * @mapbox/togeojson already outputs [lng, lat] (GeoJSON standard), but some
+   * malformed KML files may produce inverted coordinates. We detect this by
+   * checking if the centroid of the first feature falls inside Brazil bounds.
    */
   private static normalizeCoordinates(geojson: FeatureCollection): FeatureCollection {
-    const normalized: FeatureCollection = {
+    if (!geojson.features?.length) return geojson;
+
+    // Sample the first coordinate of the first feature with coordinates
+    const sample = this.sampleCoordinate(geojson);
+    if (!sample) return geojson;
+
+    const [first, second] = sample;
+    const asIs = this.isInsideBrazil(first, second);      // [lng, lat]
+    const swapped = this.isInsideBrazil(second, first);    // [lat, lng] swapped
+
+    if (asIs) return geojson; // Already correct
+    if (!swapped) return geojson; // Neither works — leave as-is, the geometry might not be in Brazil
+
+    // Coordinates are swapped — fix all features
+    console.warn("[KMLParser] Coordenadas invertidas detectadas, corrigindo [lat,lng] → [lng,lat]");
+    return this.swapAllCoordinates(geojson);
+  }
+
+  private static isInsideBrazil(lng: number, lat: number): boolean {
+    return (
+      lng >= this.BRAZIL_LNG_MIN && lng <= this.BRAZIL_LNG_MAX &&
+      lat >= this.BRAZIL_LAT_MIN && lat <= this.BRAZIL_LAT_MAX
+    );
+  }
+
+  private static sampleCoordinate(fc: FeatureCollection): number[] | null {
+    for (const feature of fc.features) {
+      if (!feature.geometry || !("coordinates" in feature.geometry)) continue;
+      const coords = (feature.geometry as any).coordinates;
+      const flat = this.flattenFirst(coords);
+      if (flat) return flat;
+    }
+    return null;
+  }
+
+  private static flattenFirst(coords: any): number[] | null {
+    if (!Array.isArray(coords)) return null;
+    if (typeof coords[0] === "number" && coords.length >= 2) return coords;
+    return this.flattenFirst(coords[0]);
+  }
+
+  private static swapAllCoordinates(fc: FeatureCollection): FeatureCollection {
+    return {
       type: "FeatureCollection",
-      features: geojson.features.map((feature) => {
-        if (!feature.geometry) return feature;
-
-        const geometry = feature.geometry;
-        let normalizedCoords: any;
-
-        if (geometry.type === "Point") {
-          const coords = (geometry as any).coordinates;
-          if (Array.isArray(coords) && coords.length >= 2) {
-            // Se lat > 90, provavelmente está invertido
-            if (Math.abs(coords[0]) > 90) {
-              normalizedCoords = [coords[1], coords[0]];
-            } else {
-              normalizedCoords = coords;
-            }
-          }
-        } else if (geometry.type === "Polygon") {
-          normalizedCoords = (geometry as any).coordinates.map((ring: number[][]) =>
-            ring.map((coord) => {
-              if (Array.isArray(coord) && coord.length >= 2) {
-                // Se primeiro valor > 90, provavelmente está invertido (lat, lng -> lng, lat)
-                if (Math.abs(coord[0]) > 90) {
-                  return [coord[1], coord[0], ...coord.slice(2)];
-                }
-                return coord;
-              }
-              return coord;
-            })
-          );
-        } else if (geometry.type === "MultiPolygon") {
-          normalizedCoords = (geometry as any).coordinates.map((polygon: number[][][]) =>
-            polygon.map((ring: number[][]) =>
-              ring.map((coord) => {
-                if (Array.isArray(coord) && coord.length >= 2) {
-                  if (Math.abs(coord[0]) > 90) {
-                    return [coord[1], coord[0], ...coord.slice(2)];
-                  }
-                  return coord;
-                }
-                return coord;
-              })
-            )
-          );
-        } else {
-          return feature;
-        }
-
+      features: fc.features.map((feature) => {
+        if (!feature.geometry || !("coordinates" in feature.geometry)) return feature;
         return {
           ...feature,
           geometry: {
-            ...geometry,
-            coordinates: normalizedCoords || (geometry as any).coordinates,
+            ...feature.geometry,
+            coordinates: this.swapCoords((feature.geometry as any).coordinates),
           },
         };
       }),
     };
+  }
 
-    return normalized;
+  private static swapCoords(coords: any): any {
+    if (!Array.isArray(coords)) return coords;
+    if (typeof coords[0] === "number" && coords.length >= 2) {
+      return [coords[1], coords[0], ...coords.slice(2)];
+    }
+    return coords.map((c: any) => this.swapCoords(c));
   }
 
   /**
@@ -96,6 +107,11 @@ export class KMLParser {
     // Check if it looks like XML/KML
     if (!kmlString.trim().startsWith("<") || !kmlString.includes("kml")) {
       errors.push("Arquivo não parece ser um KML válido. Verifique se o arquivo está correto.");
+      return {
+        geojson: { type: "FeatureCollection", features: [] },
+        isValid: false,
+        errors,
+      };
     }
 
     try {

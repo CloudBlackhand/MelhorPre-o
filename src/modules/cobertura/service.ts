@@ -4,7 +4,7 @@ import { GeometryService } from "./geometry-service";
 import { GeolocationService } from "./geolocation";
 import type { CoberturaArea, CreateCoberturaAreaInput, GeoLocation, CoberturaResponse } from "@/types";
 import type { FeatureCollection } from "geojson";
-import { getCache, setCache } from "@/lib/redis";
+import { getCache, setCache, deleteCacheByPrefix } from "@/lib/redis";
 import { PlanoService } from "../planos/service";
 import { OperadoraService } from "../operadoras/service";
 
@@ -238,6 +238,8 @@ export class CoberturaService {
       // Check coverage
       const result = await this.checkCoverageByCoordinates(location.lat, location.lng);
       result.cep = normalizedCEP;
+      result.cidade = location.cidade;
+      result.estado = location.estado;
       if (result.operadoras.length === 0 && !result.mensagem) {
         result.mensagem =
           "CEP encontrado, mas não há cobertura cadastrada para esta região. Cadastre áreas KML no painel admin.";
@@ -423,11 +425,17 @@ export class CoberturaService {
   }
 
   /**
-   * Invalidate all coverage cache
+   * Invalidate all coverage-related cache (cobertura:cep:*, cobertura:coord:*)
    */
   private async invalidateCache(): Promise<void> {
-    // In production, you might want to use pattern matching to delete all coverage cache
-    // For now, we'll let cache expire naturally
+    try {
+      const deleted = await deleteCacheByPrefix("cobertura:");
+      if (deleted > 0) {
+        console.log(`[CoberturaService] Cache invalidado: ${deleted} chave(s) removida(s)`);
+      }
+    } catch (error) {
+      console.error("[CoberturaService] Erro ao invalidar cache:", error);
+    }
   }
 }
 

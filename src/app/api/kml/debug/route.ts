@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/kml/debug?lat=X&lng=Y
- * Debug endpoint para verificar áreas de cobertura e testar ponto em polígono
+ * Debug endpoint — tests point-in-polygon for every stored area, including LineString circles.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -36,117 +36,129 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Buscar todas as áreas
     const areas = await prisma.coberturaArea.findMany({
-      include: {
-        operadora: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+      include: { operadora: true },
+      orderBy: { createdAt: "desc" },
     });
 
-    const results = await Promise.all(
-      areas.map(async (area) => {
-        const geojson = area.geometria as any;
-        
-        if (!geojson || geojson.type !== "FeatureCollection") {
-          return {
-            areaId: area.id,
-            nomeArea: area.nomeArea,
-            operadora: area.operadora.nome,
-            status: "invalid_geojson",
-            featureCount: 0,
-            details: "GeoJSON inválido ou não é FeatureCollection",
-          };
-        }
+    const results = areas.map((area) => {
+      const geojson = area.geometria as any;
 
-        const featureCount = geojson.features?.length || 0;
-        let containsPoint = false;
-        let testDetails: any[] = [];
-
-        // Testar cada feature
-        for (let i = 0; i < featureCount; i++) {
-          const feature = geojson.features[i];
-          if (!feature.geometry) continue;
-
-          const geometry = feature.geometry;
-          const turfPoint = turf.point([testLng, testLat]);
-
-          let contains = false;
-          let error: string | null = null;
-
-          try {
-            if (geometry.type === "Polygon") {
-              const polygon = turf.polygon(geometry.coordinates);
-              contains = turf.booleanPointInPolygon(turfPoint, polygon);
-              
-              // Calcular bbox para debug
-              const bbox = turf.bbox(polygon);
-              testDetails.push({
-                featureIndex: i,
-                type: "Polygon",
-                contains,
-                bbox: {
-                  minLng: bbox[0],
-                  minLat: bbox[1],
-                  maxLng: bbox[2],
-                  maxLat: bbox[3],
-                },
-                pointInBbox: 
-                  testLng >= bbox[0] && testLng <= bbox[2] &&
-                  testLat >= bbox[1] && testLat <= bbox[3],
-                coordinatesSample: geometry.coordinates[0]?.slice(0, 3), // Primeiros 3 pontos
-              });
-            } else if (geometry.type === "MultiPolygon") {
-              const multiPolygon = turf.multiPolygon(geometry.coordinates);
-              contains = turf.booleanPointInPolygon(turfPoint, multiPolygon);
-              
-              const bbox = turf.bbox(multiPolygon);
-              testDetails.push({
-                featureIndex: i,
-                type: "MultiPolygon",
-                contains,
-                bbox: {
-                  minLng: bbox[0],
-                  minLat: bbox[1],
-                  maxLng: bbox[2],
-                  maxLat: bbox[3],
-                },
-                pointInBbox: 
-                  testLng >= bbox[0] && testLng <= bbox[2] &&
-                  testLat >= bbox[1] && testLat <= bbox[3],
-                polygonCount: geometry.coordinates.length,
-              });
-            } else {
-              error = `Tipo de geometria não suportado: ${geometry.type}`;
-            }
-          } catch (err) {
-            error = err instanceof Error ? err.message : "Erro desconhecido";
-          }
-
-          if (contains) {
-            containsPoint = true;
-          }
-
-          if (error) {
-            testDetails.push({
-              featureIndex: i,
-              error,
-            });
-          }
-        }
-
+      if (!geojson || geojson.type !== "FeatureCollection") {
         return {
           areaId: area.id,
           nomeArea: area.nomeArea,
           operadora: area.operadora.nome,
-          status: containsPoint ? "contains_point" : "does_not_contain",
-          featureCount,
-          testDetails,
+          status: "invalid_geojson",
+          featureCount: 0,
+          details: "GeoJSON inválido ou não é FeatureCollection",
         };
-      })
-    );
+      }
+
+      const featureCount = geojson.features?.length || 0;
+
+      // Use the same logic as the main flow
+      const containsPoint = GeometryService.pointInPolygons(
+        { lat: testLat, lng: testLng },
+        geojson
+      );
+
+      // Build per-feature details for debugging
+      const testDetails: any[] = [];
+      const turfPoint = turf.point([testLng, testLat]);
+
+      for (let i = 0; i < featureCount; i++) {
+        const feature = geojson.features[i];
+        if (!feature.geometry) continue;
+
+        const geometry = feature.geometry;
+        let contains = false;
+        let error: string | null = null;
+
+        try {
+          if (geometry.type === "Polygon") {
+            const polygon = turf.polygon(geometry.coordinates);
+            contains = turf.booleanPointInPolygon(turfPoint, polygon);
+            const bbox = turf.bbox(polygon);
+            testDetails.push({
+              featureIndex: i,
+              type: "Polygon",
+              contains,
+              bbox: { minLng: bbox[0], minLat: bbox[1], maxLng: bbox[2], maxLat: bbox[3] },
+              pointInBbox:
+                testLng >= bbox[0] && testLng <= bbox[2] &&
+                testLat >= bbox[1] && testLat <= bbox[3],
+              coordinatesSample: geometry.coordinates[0]?.slice(0, 3),
+            });
+          } else if (geometry.type === "MultiPolygon") {
+            const multiPolygon = turf.multiPolygon(geometry.coordinates);
+            contains = turf.booleanPointInPolygon(turfPoint, multiPolygon);
+            const bbox = turf.bbox(multiPolygon);
+            testDetails.push({
+              featureIndex: i,
+              type: "MultiPolygon",
+              contains,
+              bbox: { minLng: bbox[0], minLat: bbox[1], maxLng: bbox[2], maxLat: bbox[3] },
+              pointInBbox:
+                testLng >= bbox[0] && testLng <= bbox[2] &&
+                testLat >= bbox[1] && testLat <= bbox[3],
+              polygonCount: geometry.coordinates.length,
+            });
+          } else if (geometry.type === "LineString") {
+            const lineCoords = geometry.coordinates;
+            if (lineCoords && lineCoords.length >= 3) {
+              const first = lineCoords[0];
+              const last = lineCoords[lineCoords.length - 1];
+              const isClosed =
+                (first[0] === last[0] && first[1] === last[1]) ||
+                (Math.abs(first[0] - last[0]) < 0.000001 && Math.abs(first[1] - last[1]) < 0.000001);
+
+              if (isClosed) {
+                const polygon = turf.polygon([lineCoords]);
+                contains = turf.booleanPointInPolygon(turfPoint, polygon);
+                const bbox = turf.bbox(polygon);
+                testDetails.push({
+                  featureIndex: i,
+                  type: "LineString (closed → Polygon)",
+                  contains,
+                  bbox: { minLng: bbox[0], minLat: bbox[1], maxLng: bbox[2], maxLat: bbox[3] },
+                  pointInBbox:
+                    testLng >= bbox[0] && testLng <= bbox[2] &&
+                    testLat >= bbox[1] && testLat <= bbox[3],
+                });
+              } else {
+                error = "LineString aberta (não é polígono)";
+              }
+            } else {
+              error = "LineString com pontos insuficientes";
+            }
+          } else {
+            error = `Tipo de geometria não suportado: ${geometry.type}`;
+          }
+        } catch (err) {
+          error = err instanceof Error ? err.message : "Erro desconhecido";
+        }
+
+        if (error) {
+          testDetails.push({ featureIndex: i, error });
+        }
+      }
+
+      return {
+        areaId: area.id,
+        nomeArea: area.nomeArea,
+        operadora: area.operadora.nome,
+        bbox: {
+          minLat: area.bboxMinLat,
+          maxLat: area.bboxMaxLat,
+          minLng: area.bboxMinLng,
+          maxLng: area.bboxMaxLng,
+        },
+        status: containsPoint ? "contains_point" : "does_not_contain",
+        featureCount,
+        testDetails,
+      };
+    });
 
     return NextResponse.json({
       testPoint: { lat: testLat, lng: testLng },

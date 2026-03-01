@@ -2,30 +2,84 @@ import axios from "axios";
 import type { GeoLocation } from "@/types";
 import { getCache, setCache } from "@/lib/redis";
 
+const BRASIL_API_URL = "https://brasilapi.com.br/api/cep/v2";
 const VIA_CEP_URL = process.env.VIA_CEP_API_URL || "https://viacep.com.br/ws";
+const HTTP_TIMEOUT = 5000;
 
 export class GeolocationService {
   /**
-   * Convert CEP to coordinates using ViaCEP API
+   * Convert CEP to coordinates.
+   * Strategy: BrasilAPI v2 (address + coords in one call) → fallback ViaCEP + Nominatim.
    */
   static async cepToCoordinates(cep: string): Promise<GeoLocation | null> {
-    // Clean CEP (remove dashes and spaces)
     const cleanCep = cep.replace(/\D/g, "");
 
     if (cleanCep.length !== 8) {
       throw new Error("CEP inválido. Deve conter 8 dígitos");
     }
 
-    // Check cache first
     const cacheKey = `geocoding:cep:${cleanCep}`;
     const cached = await getCache<GeoLocation>(cacheKey);
-    if (cached) {
-      return cached;
+    if (cached) return cached;
+
+    // 1) BrasilAPI v2
+    const brasilApiResult = await this.fetchFromBrasilAPI(cleanCep);
+    if (brasilApiResult) {
+      await setCache(cacheKey, brasilApiResult, 86400);
+      return brasilApiResult;
     }
 
+    // 2) Fallback: ViaCEP (address) + Nominatim (geocoding)
+    const fallbackResult = await this.fetchFromViaCepNominatim(cleanCep);
+    if (fallbackResult) {
+      await setCache(cacheKey, fallbackResult, 86400);
+      return fallbackResult;
+    }
+
+    return null;
+  }
+
+  private static async fetchFromBrasilAPI(cep: string): Promise<GeoLocation | null> {
     try {
-      // Get address from ViaCEP
-      const response = await axios.get(`${VIA_CEP_URL}/${cleanCep}/json/`);
+      const response = await axios.get(`${BRASIL_API_URL}/${cep}`, { timeout: HTTP_TIMEOUT });
+      const data = response.data;
+      if (!data || data.errors) return null;
+
+      const lat = parseFloat(data.location?.coordinates?.latitude);
+      const lng = parseFloat(data.location?.coordinates?.longitude);
+
+      const location: GeoLocation = {
+        lat: Number.isFinite(lat) ? lat : 0,
+        lng: Number.isFinite(lng) ? lng : 0,
+        cep: data.cep || cep,
+        logradouro: data.street || undefined,
+        bairro: data.neighborhood || undefined,
+        cidade: data.city || undefined,
+        estado: data.state || undefined,
+      };
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) {
+        // BrasilAPI returned address but no coordinates — still useful as address source
+        // but we need coords, so return null to trigger fallback
+        console.warn(`[Geolocation] BrasilAPI sem coordenadas para CEP ${cep}, tentando fallback`);
+        return null;
+      }
+
+      if (!this.validateCoordinates(location.lat, location.lng)) {
+        console.warn(`[Geolocation] BrasilAPI retornou coordenadas fora do Brasil para CEP ${cep}: ${lat}, ${lng}`);
+        return null;
+      }
+
+      return location;
+    } catch (error) {
+      console.warn(`[Geolocation] BrasilAPI falhou para CEP ${cep}:`, error instanceof Error ? error.message : error);
+      return null;
+    }
+  }
+
+  private static async fetchFromViaCepNominatim(cep: string): Promise<GeoLocation | null> {
+    try {
+      const response = await axios.get(`${VIA_CEP_URL}/${cep}/json/`, { timeout: HTTP_TIMEOUT });
 
       if (response.data.erro) {
         throw new Error("CEP não encontrado");
@@ -33,19 +87,36 @@ export class GeolocationService {
 
       const { logradouro, bairro, localidade, uf, cep: cepFormatted } = response.data;
 
-      // Get coordinates from address using a geocoding service
-      // For now, we'll use a simple approach with another API or return partial data
-      // In production, you might want to use Google Geocoding API or similar
-      const coordinates = await this.addressToCoordinates(
-        `${logradouro}, ${bairro}, ${localidade}, ${uf}`
-      );
-
-      if (!coordinates) {
-        // Não retornar (0,0) - fica fora do Brasil e quebra a busca por cobertura
+      // Build address query — handle missing fields gracefully
+      const addressParts = [logradouro, bairro, localidade, uf].filter(Boolean);
+      if (addressParts.length < 2) {
+        // At minimum we need city + state for geocoding
+        console.warn(`[Geolocation] ViaCEP retornou dados insuficientes para CEP ${cep}`);
         return null;
       }
 
-      const location: GeoLocation = {
+      const coordinates = await this.addressToCoordinates(addressParts.join(", "));
+
+      if (!coordinates) {
+        // Try broader query with just city + state
+        if (localidade && uf) {
+          const broadCoordinates = await this.addressToCoordinates(`${localidade}, ${uf}`);
+          if (broadCoordinates) {
+            const location: GeoLocation = {
+              ...broadCoordinates,
+              cep: cepFormatted,
+              logradouro,
+              bairro,
+              cidade: localidade,
+              estado: uf,
+            };
+            return location;
+          }
+        }
+        return null;
+      }
+
+      return {
         ...coordinates,
         cep: cepFormatted,
         logradouro,
@@ -53,22 +124,12 @@ export class GeolocationService {
         cidade: localidade,
         estado: uf,
       };
-
-      // Cache for 24 hours
-      await setCache(cacheKey, location, 86400);
-
-      return location;
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        throw new Error(`Erro ao buscar CEP: ${error.message}`);
-      }
-      throw error;
+      console.warn(`[Geolocation] ViaCEP+Nominatim falhou para CEP ${cep}:`, error instanceof Error ? error.message : error);
+      return null;
     }
   }
 
-  /**
-   * Convert address to coordinates (Nominatim / OpenStreetMap - gratuito, com rate limit)
-   */
   private static async addressToCoordinates(
     address: string
   ): Promise<{ lat: number; lng: number } | null> {
@@ -85,37 +146,29 @@ export class GeolocationService {
           headers: {
             "User-Agent": "MelhorPreco.net (contato@melhorpreco.net)",
           },
-          timeout: 5000,
+          timeout: HTTP_TIMEOUT,
         }
       );
 
       if (response.data && response.data.length > 0) {
         const first = response.data[0];
-        return {
-          lat: parseFloat(first.lat),
-          lng: parseFloat(first.lon),
-        };
+        const lat = parseFloat(first.lat);
+        const lng = parseFloat(first.lon);
+        if (Number.isFinite(lat) && Number.isFinite(lng) && this.validateCoordinates(lat, lng)) {
+          return { lat, lng };
+        }
       }
     } catch (error) {
-      console.error("Geocoding error:", error);
+      console.warn("[Geolocation] Nominatim error:", error instanceof Error ? error.message : error);
     }
     return null;
   }
 
-  /**
-   * Validate coordinates are within Brazil bounds
-   */
   static validateCoordinates(lat: number, lng: number): boolean {
-    // Brazil bounds: lat: -35 to 5, lng: -75 to -30
     return lat >= -35 && lat <= 5 && lng >= -75 && lng <= -30;
   }
 
-  /**
-   * Normalize CEP format
-   */
   static normalizeCEP(cep: string): string {
     return cep.replace(/\D/g, "");
   }
 }
-
-

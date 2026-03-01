@@ -56,10 +56,14 @@ model CoberturaArea {
   id          String    @id @default(cuid())
   operadoraId String    @map("operadora_id")
   nomeArea    String    @map("nome_area")
-  geometria   Json      // GeoJSON ou PostGIS Geometry
+  geometria   Json      // GeoJSON FeatureCollection
   kmlOriginal String?   @db.Text @map("kml_original")
-  rank        Int?      @default(999) // Ordem de prioridade (menor = maior prioridade)
-  score       Float?    // Nota opcional (0-10)
+  rank        Int?      @default(999)
+  score       Float?
+  bboxMinLat  Float?    @map("bbox_min_lat")
+  bboxMaxLat  Float?    @map("bbox_max_lat")
+  bboxMinLng  Float?    @map("bbox_min_lng")
+  bboxMaxLng  Float?    @map("bbox_max_lng")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
@@ -68,6 +72,7 @@ model CoberturaArea {
   @@index([operadoraId])
   @@index([rank])
   @@index([score])
+  @@index([bboxMinLat, bboxMaxLat, bboxMinLng, bboxMaxLng])
   @@map("cobertura_areas")
 }
 
