@@ -414,6 +414,15 @@ export class CoberturaService {
   }
 
   /**
+   * Delete all coverage areas from the database. Returns the number of deleted records.
+   */
+  async deleteAllAreas(): Promise<{ deleted: number }> {
+    const deleted = await this.repository.deleteAll();
+    await this.invalidateCache();
+    return { deleted };
+  }
+
+  /**
    * Invalidate all coverage cache
    */
   private async invalidateCache(): Promise<void> {

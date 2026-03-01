@@ -110,6 +110,12 @@ export class CoberturaRepository {
     });
   }
 
+  /** Remove todas as áreas de cobertura do banco. Retorna a quantidade removida. */
+  async deleteAll(): Promise<number> {
+    const result = await prisma.coberturaArea.deleteMany({});
+    return result.count;
+  }
+
   /**
    * Find all coverage areas that might contain a point
    * This is a simplified version - in production with PostGIS, use ST_Contains

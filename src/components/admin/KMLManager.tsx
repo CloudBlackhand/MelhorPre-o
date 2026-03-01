@@ -61,6 +61,7 @@ export function KMLManager() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadSummary, setUploadSummary] = useState("");
   const [fileValidationError, setFileValidationError] = useState<string | null>(null);
+  const [deletingAll, setDeletingAll] = useState(false);
 
   useEffect(() => {
     fetchAreas();
@@ -230,6 +231,30 @@ export function KMLManager() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (
+      !confirm(
+        "Tem certeza que deseja apagar TODAS as áreas de cobertura do banco? Esta ação não pode ser desfeita."
+      )
+    ) {
+      return;
+    }
+
+    setDeletingAll(true);
+    try {
+      const res = await axios.delete("/api/kml/areas");
+      const deleted = res.data?.deleted ?? 0;
+      alert(`${deleted} área(s) de cobertura removida(s) do banco.`);
+      await fetchAreas();
+    } catch (error: any) {
+      console.error("Error deleting all areas:", error);
+      const msg = error.response?.data?.error || "Erro ao apagar áreas.";
+      alert(msg);
+    } finally {
+      setDeletingAll(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -349,8 +374,28 @@ export function KMLManager() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Áreas de Cobertura Cadastradas</CardTitle>
+          {areas.length > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDeleteAll}
+              disabled={deletingAll}
+            >
+              {deletingAll ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Apagando...
+                </span>
+              ) : (
+                "Apagar todas do banco"
+              )}
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (

@@ -24,4 +24,21 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/** Apaga todas as áreas de cobertura do banco. Requer autenticação admin. */
+export async function DELETE(request: NextRequest) {
+  try {
+    const authError = await requireAdmin(request);
+    if (authError) return authError;
+
+    const { deleted } = await coberturaService.deleteAllAreas();
+    return NextResponse.json({ deleted, message: `${deleted} área(s) de cobertura removida(s).` });
+  } catch (error) {
+    console.error("Error deleting all areas:", error);
+    return NextResponse.json(
+      { error: "Erro ao apagar áreas de cobertura" },
+      { status: 500 }
+    );
+  }
+}
+
 
