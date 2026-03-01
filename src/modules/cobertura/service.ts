@@ -105,9 +105,9 @@ export class CoberturaService {
       features: [],
     };
 
-    const originalFeatureCount = source.features?.length || 0;
     let convertedCount = 0;
     let filteredCount = 0;
+    let openLineStringCount = 0;
 
     // Processar cada feature: converter LineString fechada para Polygon, manter Polygon/MultiPolygon
     for (const feature of source.features || []) {
@@ -117,12 +117,10 @@ export class CoberturaService {
       }
 
       const geometry = feature.geometry;
-      
+
       if (geometry.type === "Polygon" || geometry.type === "MultiPolygon") {
-        // Já é polígono, manter
         geojson.features.push(feature);
       } else if (geometry.type === "LineString") {
-        // Verificar se LineString está fechada (círculo)
         const lineCoords = (geometry as any).coordinates;
         if (lineCoords && lineCoords.length >= 3) {
           const first = lineCoords[0];
@@ -132,42 +130,34 @@ export class CoberturaService {
             (Math.abs(first[0] - last[0]) < 0.000001 && Math.abs(first[1] - last[1]) < 0.000001);
 
           if (isClosed) {
-            // Converter LineString fechada para Polygon (círculo)
             const polygonFeature = {
               ...feature,
               geometry: {
                 type: "Polygon" as const,
-                coordinates: [lineCoords], // Polygon precisa de array de rings
+                coordinates: [lineCoords],
               },
             };
             geojson.features.push(polygonFeature);
             convertedCount++;
-            console.log(`[CoberturaService] LineString fechada convertida para Polygon (círculo)`);
           } else {
-            // LineString não fechada - não é área de cobertura
+            openLineStringCount++;
             filteredCount++;
-            console.log(`[CoberturaService] LineString não fechada ignorada`);
           }
         } else {
           filteredCount++;
         }
-      } else if (geometry.type === "Point") {
-        // Point pode ser centro de círculo se tiver radius nas properties
-        // Por enquanto, ignorar (seria necessário processar <Circle> do KML antes da conversão)
-        filteredCount++;
-        console.log(`[CoberturaService] Point ignorado (não é área de cobertura)`);
       } else {
-        // Outros tipos não suportados
         filteredCount++;
-        console.log(`[CoberturaService] Tipo de geometria não suportado: ${geometry.type}`);
       }
     }
 
-    if (convertedCount > 0) {
-      console.log(`[CoberturaService] ${convertedCount} LineString(s) fechada(s) convertida(s) para Polygon`);
-    }
-    if (filteredCount > 0) {
-      console.log(`[CoberturaService] ${filteredCount} feature(s) não-polygon ignorada(s)`);
+    // Um único log de resumo para evitar rate limit (ex.: Railway 500 logs/s)
+    if (convertedCount > 0 || filteredCount > 0) {
+      const parts = [];
+      if (convertedCount > 0) parts.push(`${convertedCount} LineString(s) fechada(s)→Polygon`);
+      if (openLineStringCount > 0) parts.push(`${openLineStringCount} LineString(s) aberta(s) ignorada(s)`);
+      if (filteredCount > openLineStringCount) parts.push(`${filteredCount - openLineStringCount} outra(s) ignorada(s)`);
+      console.log(`[CoberturaService] prepareCoverageGeoJSON: ${parts.join(", ")}`);
     }
 
     // Validate geometry (precisa ter pelo menos uma área)
