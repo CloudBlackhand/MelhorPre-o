@@ -12,7 +12,8 @@
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "create-admin": "tsx scripts/create-admin.ts",
-    "test:coverage": "tsx scripts/test-coverage.ts"
+    "test:coverage": "tsx scripts/test-coverage.ts",
+    "db:seed-kml": "tsx prisma/seed-kml.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
