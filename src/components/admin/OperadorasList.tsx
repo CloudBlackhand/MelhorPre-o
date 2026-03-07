@@ -26,20 +26,6 @@ export function OperadorasList() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja deletar esta operadora?")) {
-      return;
-    }
-
-    try {
-      await axios.delete(`/api/operadoras/${id}`);
-      fetchOperadoras();
-    } catch (error) {
-      console.error("Error deleting operadora:", error);
-      alert("Erro ao deletar operadora");
-    }
-  };
-
   if (loading) {
     return <div>Carregando...</div>;
   }
@@ -48,10 +34,7 @@ export function OperadorasList() {
     return (
       <Card>
         <CardContent className="py-8 text-center">
-          <p className="text-muted-foreground">Nenhuma operadora cadastrada</p>
-          <Link href="/admin/operadoras/novo">
-            <Button className="mt-4">Criar primeira operadora</Button>
-          </Link>
+          <p className="text-muted-foreground">Nenhuma operadora. Rode o seed para carregar do config.</p>
         </CardContent>
       </Card>
     );
@@ -69,24 +52,17 @@ export function OperadorasList() {
               <p className="text-sm text-muted-foreground">
                 Status: {operadora.ativo ? "Ativa" : "Inativa"}
               </p>
-              {operadora.ordemRecomendacao && (
+              {operadora.ordemRecomendacao != null && (
                 <p className="text-sm text-muted-foreground">
-                  Ordem: {operadora.ordemRecomendacao}
+                  Ordem de recomendação: {operadora.ordemRecomendacao}
                 </p>
               )}
               <div className="flex gap-2 mt-4">
-                <Link href={`/admin/operadoras/${operadora.id}`}>
+                <Link href="/admin/ordem">
                   <Button variant="outline" size="sm">
-                    Editar
+                    Alterar ordem
                   </Button>
                 </Link>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => handleDelete(operadora.id)}
-                >
-                  Deletar
-                </Button>
               </div>
             </div>
           </CardContent>

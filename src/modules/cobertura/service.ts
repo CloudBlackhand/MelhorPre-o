@@ -232,7 +232,7 @@ export class CoberturaService {
       result.estado = location.estado;
       if (result.operadoras.length === 0 && !result.mensagem) {
         result.mensagem =
-          "CEP encontrado, mas não há cobertura cadastrada para esta região. Cadastre áreas KML no painel admin.";
+          "CEP encontrado, mas não há cobertura para esta região.";
       }
 
       // Cache for 24 hours
@@ -287,8 +287,18 @@ export class CoberturaService {
       const operadoraIds = [...new Set(areas.map((area) => area.operadoraId))];
       console.log(`[CoberturaService] ${operadoraIds.length} operadora(s) única(s) encontrada(s)`);
 
+      // Melhor rank por operadora (menor = maior prioridade)
+      const bestRankByOperadora = new Map<string, number>();
+      for (const area of areas) {
+        const rank = area.rank ?? 999;
+        const current = bestRankByOperadora.get(area.operadoraId);
+        if (current === undefined || rank < current) {
+          bestRankByOperadora.set(area.operadoraId, rank);
+        }
+      }
+
       // Get operadoras and their plans
-      const operadoras = await Promise.all(
+      const operadorasRaw = await Promise.all(
         operadoraIds.map(async (id) => {
           try {
             const operadora = await this.operadoraService.getById(id);
@@ -305,6 +315,7 @@ export class CoberturaService {
               nome: operadora.nome,
               slug: operadora.slug,
               logoUrl: operadora.logoUrl,
+              ordemRecomendacao: operadora.ordemRecomendacao ?? 999,
               planos: planos.map((p) => ({
                 id: p.id,
                 nome: p.nome,
@@ -322,7 +333,16 @@ export class CoberturaService {
         })
       );
 
-      const validOperadoras = operadoras.filter((o) => o !== null) as any;
+      const validOperadorasWithOrder = operadorasRaw.filter((o) => o !== null) as NonNullable<typeof operadorasRaw[number]>[];
+      // Ordenar: (1) melhor rank da área (asc), (2) ordemRecomendacao da operadora (asc)
+      validOperadorasWithOrder.sort((a, b) => {
+        const rankA = bestRankByOperadora.get(a.id) ?? 999;
+        const rankB = bestRankByOperadora.get(b.id) ?? 999;
+        if (rankA !== rankB) return rankA - rankB;
+        return (a.ordemRecomendacao ?? 999) - (b.ordemRecomendacao ?? 999);
+      });
+      const validOperadoras = validOperadorasWithOrder.map(({ ordemRecomendacao: _o, ...rest }) => rest);
+
       const result: CoberturaResponse = {
         operadoras: validOperadoras,
         coordenadas: { lat, lng },
@@ -330,7 +350,7 @@ export class CoberturaService {
       
       if (result.operadoras.length === 0) {
         result.mensagem =
-          "Não há cobertura cadastrada para esta região. Cadastre áreas KML no painel admin.";
+          "Não há cobertura para esta região.";
       } else {
         const totalPlanos = result.operadoras.reduce((sum, op) => sum + op.planos.length, 0);
         console.log(`[CoberturaService] Total de ${totalPlanos} plano(s) encontrado(s) para ${result.operadoras.length} operadora(s)`);

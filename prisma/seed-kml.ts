@@ -22,16 +22,6 @@ const KM_DIR = path.resolve(__dirname, "..", "KM");
 
 // ─── Helpers ────────────────────────────────────────────────
 
-function slugify(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "operadora";
-}
-
 interface BBox { minLat: number; maxLat: number; minLng: number; maxLng: number }
 
 function computeBBox(fc: FeatureCollection): BBox | null {
@@ -223,31 +213,14 @@ function extractDesktopKmlGroups(root: FolderNode, xmlDoc: Document): OperatorGr
 }
 
 // ─── DB operations ──────────────────────────────────────────
+// Operadoras vêm do config (seed principal). Só criamos áreas para operadoras existentes.
 
-async function getOrCreateOperadora(name: string): Promise<string> {
-  const slug = slugify(name);
-  const existing = await prisma.operadora.findFirst({
-    where: {
-      OR: [
-        { slug },
-        { nome: name },
-      ],
-    },
-  });
-  if (existing) return existing.id;
-
-  // Check slug uniqueness
-  let finalSlug = slug;
-  let suffix = 2;
-  while (await prisma.operadora.findUnique({ where: { slug: finalSlug } })) {
-    finalSlug = `${slug}-${suffix++}`;
-  }
-
-  const op = await prisma.operadora.create({
-    data: { nome: name, slug: finalSlug, ativo: true },
-  });
-  console.log(`  + Operadora criada: "${name}" (${finalSlug})`);
-  return op.id;
+async function getOperadoraIdByKmlName(operatorName: string): Promise<string | null> {
+  const { resolveSlugByKmlOperatorName } = await import("../src/config/operadoras-planos");
+  const slug = resolveSlugByKmlOperatorName(operatorName);
+  if (!slug) return null;
+  const operadora = await prisma.operadora.findUnique({ where: { slug } });
+  return operadora?.id ?? null;
 }
 
 async function createCoberturaArea(
@@ -358,7 +331,11 @@ async function processKmlFile(filePath: string): Promise<void> {
   console.log(`  ${groups.length} grupo(s) de operadoras encontrados`);
 
   for (const group of groups) {
-    const operadoraId = await getOrCreateOperadora(group.operatorName);
+    const operadoraId = await getOperadoraIdByKmlName(group.operatorName);
+    if (!operadoraId) {
+      console.log(`  ⁃ Operadora não mapeada no config, pulando: "${group.operatorName}"`);
+      continue;
+    }
     await createCoberturaArea(operadoraId, group.areaName, group.features);
   }
 }

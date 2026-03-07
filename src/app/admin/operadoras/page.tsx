@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth/config";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { OperadorasList } from "@/components/admin/OperadorasList";
 
 export default async function OperadorasPage() {
@@ -15,14 +13,9 @@ export default async function OperadorasPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Operadoras</h1>
-            <p className="text-muted-foreground">Gerencie as operadoras de internet</p>
-          </div>
-          <Link href="/admin/operadoras/novo">
-            <Button>Nova Operadora</Button>
-          </Link>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">Operadoras</h1>
+          <p className="text-muted-foreground">Operadoras definidas no código. Ajuste a ordem em &quot;Ordem das operadoras&quot;.</p>
         </div>
 
         <OperadorasList />
