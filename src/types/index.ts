@@ -107,14 +107,24 @@ export const CreateRecomendacaoSchema = z.object({
 
 export type CreateRecomendacaoInput = z.infer<typeof CreateRecomendacaoSchema>;
 
-// API Response Types
+// API Response Types — plano na resposta de cobertura (subset, sem campos internos)
+export interface PlanoCobertura {
+  id: string;
+  nome: string;
+  velocidadeDownload: number;
+  velocidadeUpload: number;
+  preco: number;
+  descricao: string | null;
+  beneficios: string[] | null;
+}
+
 export interface CoberturaResponse {
   operadoras: Array<{
     id: string;
     nome: string;
     slug: string;
     logoUrl: string | null;
-    planos: Plano[];
+    planos: PlanoCobertura[];
   }>;
   coordenadas?: {
     lat: number;
