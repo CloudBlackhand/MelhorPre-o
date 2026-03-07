@@ -76,7 +76,7 @@ async function main() {
           data: {
             operadoraId,
             ...plData,
-            beneficios: pl.beneficios ?? null,
+            beneficios: pl.beneficios ?? Prisma.JsonNull,
           },
         });
       }
