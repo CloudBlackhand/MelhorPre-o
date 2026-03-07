@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { execSync } from "child_process";
 import * as path from "path";
@@ -61,13 +61,24 @@ async function main() {
         velocidadeUpload: pl.velocidadeUpload,
         preco: pl.preco,
         descricao: pl.descricao ?? null,
-        beneficios: pl.beneficios ?? null,
         ativo: true,
       };
       if (existingPl) {
-        await prisma.plano.update({ where: { id: existingPl.id }, data: plData });
+        await prisma.plano.update({
+          where: { id: existingPl.id },
+          data: {
+            ...plData,
+            beneficios: pl.beneficios ?? Prisma.JsonNull,
+          },
+        });
       } else {
-        await prisma.plano.create({ data: { operadoraId, ...plData } });
+        await prisma.plano.create({
+          data: {
+            operadoraId,
+            ...plData,
+            beneficios: pl.beneficios ?? null,
+          },
+        });
       }
     }
     console.log(`  Planos: ${op.planos.length} para ${op.nome}`);
